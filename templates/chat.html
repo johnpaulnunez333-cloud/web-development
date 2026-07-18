@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MDN Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}"/>
+</head>
+<body>
+  <nav class="navbar" id="navbar">
+    <div class="nav-logo">
+      <span class="logo-bracket">&lt;</span>MDN<span class="logo-bracket">/&gt;</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="{{ url_for('index') }}">Home</a></li>
+      <li><a href="{{ url_for('index') }}#about">About</a></li>
+      <li><a href="{{ url_for('index') }}#team">Team</a></li>
+      <li><a href="{{ url_for('index') }}#services">Services</a></li>
+      <li><a href="{{ url_for('chat') }}" class="active">Conversation</a></li>
+      <li><a href="{{ url_for('index') }}#contact">Contact</a></li>
+    </ul>
+    <div class="nav-right">
+      <span class="nav-user">👤 {{ username }}</span>
+      <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <div class="chat-layout">
+    <div class="chat-sidebar">
+      <div class="sidebar-header">
+        <h3>💬 MDN Chat</h3>
+        <span class="online-badge" id="onlineCount">● 0 online</span>
+      </div>
+      <div class="sidebar-info">
+        <p>MDN Group Chat — members only.</p>
+      </div>
+      <div class="online-users" id="onlineUsers"></div>
+    </div>
+
+    <div class="chat-main">
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <div class="chat-avatar-group">💬</div>
+          <div>
+            <h4>MDN Group Chat</h4>
+            <span class="chat-status" id="chatStatus">Connecting...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chatMessages"></div>
+
+      <div class="chat-input-area">
+        <div class="chat-input-wrap">
+          <input type="text" id="msgInput" placeholder="Type a message..." autocomplete="off" maxlength="500"/>
+          <button class="send-btn" id="sendBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <span class="char-count" id="charCount">0/500</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const USERNAME = '{{ username }}';
+  </script>
+  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>

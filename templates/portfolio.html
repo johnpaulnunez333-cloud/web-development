@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}">
+</head>
+
+<body>
+    <header class="pf-header">
+        <div class="pf-container pf-nav-row">
+            <div class="pf-logo">
+                <img src="{{ url_for('static', filename='images/Logo.png') }}" alt="MDW Logo" class="pf-logo-img">
+                MDW <span>Manantan Digital Works</span>
+            </div>
+            <button class="pf-nav-toggle" id="pfNavToggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+            <nav>
+                <ul id="pfNavList">
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                    <li><a href="{{ url_for('index') }}#services">Services</a></li>
+                    <li><a href="{{ url_for('portfolio') }}" class="active">Portfolio</a></li>
+                    <li><a href="{{ url_for('chat') }}">Conversation</a></li>
+                    <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="pf-hero">
+        <div class="pf-container">
+            <span class="pf-badge">Our Work</span>
+            <h1 class="pf-title">Team <span>Portfolio</span></h1>
+            <p class="pf-subtitle">Explore the projects, repositories, and live deployments built by the Manantan
+                Digital Works team.</p>
+        </div>
+    </section>
+
+    <section class="pf-grid-section">
+        <div class="pf-container">
+            <div class="pf-grid">
+
+                <div class="pf-card reveal">
+                    <div class="pf-card-avatar">KM</div>
+                    <h3>Kyle Kristan M. Manantan</h3>
+                    <span class="pf-role">Founder &amp; Web Development</span>
+                    <div class="pf-links">
+                        <a href="#" class="pf-link-btn pf-github" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                        <a href="https://web-production-a0a7e.up.railway.app/login" class="pf-link-btn pf-live" target="_blank" rel="noopener">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Live Site
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pf-card reveal reveal-delay-1">
+                    <div class="pf-card-avatar">JP</div>
+                    <h3>James Pascual</h3>
+                    <span class="pf-role">IT Support</span>
+                    <div class="pf-links">
+                        <a href="#" class="pf-link-btn pf-github" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pf-card reveal reveal-delay-2">
+                    <div class="pf-card-avatar">MD</div>
+                    <h3>Mark EJ Delos Angeles</h3>
+                    <span class="pf-role">Hardware and Networking</span>
+                    <div class="pf-links">
+                        <a href="#" class="pf-link-btn pf-github" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pf-card reveal">
+                    <div class="pf-card-avatar">JD</div>
+                    <h3>Jessie Kris Dagdag</h3>
+                    <span class="pf-role">Hardware</span>
+                    <div class="pf-links">
+                        <a href="#" class="pf-link-btn pf-github" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pf-card reveal reveal-delay-1">
+                    <div class="pf-card-avatar">JN</div>
+                    <h3>John Paul O. Nuñez</h3>
+                    <span class="pf-role">Front-End</span>
+                    <div class="pf-links">
+                        <a href="#" class="pf-link-btn pf-github" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                        <a href="#" class="pf-link-btn pf-live" target="_blank" rel="noopener">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Render
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pf-card reveal reveal-delay-2">
+                    <div class="pf-card-avatar">JI</div>
+                    <h3>Justin P. Imbag</h3>
+                    <span class="pf-role">App Developer</span>
+                    <div class="pf-links">
+                        <a href="#" class="pf-link-btn pf-github" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pf-card reveal">
+                    <div class="pf-card-avatar">LP</div>
+                    <h3>Louie Nhelson Puno</h3>
+                    <span class="pf-role">Basic Programming C# &amp; Networking</span>
+                    <div class="pf-links">
+                        <a href="#" class="pf-link-btn pf-github" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pf-card reveal reveal-delay-1">
+                    <div class="pf-card-avatar">JA</div>
+                    <h3>John Kirby Aguilar</h3>
+                    <span class="pf-role">Back End &amp; Ethical Hacking</span>
+                    <div class="pf-links">
+                        <a href="#" class="pf-link-btn pf-github" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <footer class="pf-footer">
+        <div class="pf-container">
+            <p>&copy; Manantan Digital Works. All links open in a new tab.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/portfolio.js') }}"></script>
+</body>
+
+</html>

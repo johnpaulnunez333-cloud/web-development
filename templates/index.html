@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <section class="hero-section" id="home">
+        <div class="container">
+            <header>
+                <div class="logo">
+                    <img src="{{ url_for('static', filename='images/Logo.png') }}" alt="MDW Logo" class="logo-img">
+                    MDW <span>Manantan Digital Works</span>
+                </div>
+                <nav>
+                    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+                        <span></span><span></span><span></span>
+                    </button>
+                    <ul id="navList">
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="#about">About</a></li>
+                        <li><a href="#services">Services</a></li>
+                        <li><a href="{{ url_for('portfolio') }}">Portfolio</a></li>
+                        <li><a href="{{ url_for('packet_tracer') }}">Packet Tracer</a></li>
+                        <li><a href="{{ url_for('networking_home') }}">Networking Tool</a></li>
+                        <li><a href="{{ url_for('chat') }}">Conversation</a></li>
+                        <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                        <li id="nav-login-item"><a href="{{ url_for('login') }}">Login</a></li>
+                        <li id="nav-logout-item" style="display:none;"><a href="#" id="nav-logout-link">Logout</a></li>
+                    </ul>
+                </nav>
+            </header>
+
+            <button id="topBtn">
+                <i class="fa-solid fa-arrow-up"></i>
+            </button>
+
+            <div class="hero-grid">
+                <div class="hero-left">
+                    <span class="hero-badge">Welcome To</span>
+                    <h1 class="hero-title">MANANTAN<br><span>DIGITAL WORKS</span></h1>
+                    <p class="hero-subtitle">Building Digital Solutions for a Smarter Future. We deliver powerful
+                        technological solutions, connecting you with the skilled professionals who can turn your ideas
+                        into impactful realities.</p>
+
+                    <div class="btn-group">
+                        <a href="#" class="btn btn-primary">Join Our Network</a>
+                        <a href="#" class="btn btn-outline">Learn More</a>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="center-node"><i class="fa-solid fa-network-wired"></i></div>
+
+                    <div class="user-node node-1"><img src="{{ url_for('static', filename='images/Member1.jpeg') }}" alt="Kyle" class="node-img"></div>
+                    <div class="user-node node-2"><img src="{{ url_for('static', filename='images/Member2.jpeg') }}" alt="James" class="node-img"></div>
+                    <div class="user-node node-3"><img src="{{ url_for('static', filename='images/Member .jpeg') }}" alt="Mark" class="node-img"></div>
+                    <div class="user-node node-4"><img src="{{ url_for('static', filename='images/Member3.jpeg') }}" alt="Jessie" class="node-img"></div>
+                    <div class="user-node node-5"><img src="{{ url_for('static', filename='images/Member4.jpeg') }}" alt="John" class="node-img"></div>
+                    <div class="user-node node-6"><img src="{{ url_for('static', filename='images/Member.jpeg') }}" alt="Alexander" class="node-img"></div>
+                    <div class="user-node node-7"><img src="{{ url_for('static', filename='images/Member5.jpeg') }}" alt="Justin" class="node-img"></div>
+                    <div class="user-node node-8"><img src="{{ url_for('static', filename='images/Member7.jpeg') }}" alt="Louie" class="node-img"></div>
+                    <div class="user-node node-9"><img src="{{ url_for('static', filename='images/Member.jpeg') }}" alt="kirby" class="node-img"></div>
+                </div>
+            </div>
+
+            <div class="stats-banner">
+                <div class="stat-item">
+                    <div class="stat-icon"><i class="fa-regular fa-folder-open"></i></div>
+                    <div class="stat-info">
+                        <h3>120+</h3>
+                        <p>Projects Completed</p>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon"><i class="fa-regular fa-smile"></i></div>
+                    <div class="stat-info">
+                        <h3>80+</h3>
+                        <p>Happy Clients</p>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon"><i class="fa-solid fa-award"></i></div>
+                    <div class="stat-info">
+                        <h3>5+</h3>
+                        <p>Years Experience</p>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon"><i class="fa-solid fa-headset"></i></div>
+                    <div class="stat-info">
+                        <h3>24/7</h3>
+                        <p>IT Support Available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="team" class="section-padding">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">
+                    <i class="fa-solid fa-users"></i> OUR TEAM
+                </span>
+
+                <h2 class="section-title">
+                    Meet Our Leader & Members
+                </h2>
+                <p>
+                    The talented individuals behind
+                    <span>MANANTAN DIGITAL WORKS</span>
+                </p>
+            </div>
+
+            <div class="leader-card" onclick="showMember('kyle')">
+                <div class="leader-image">
+                    <img src="{{ url_for('static', filename='images/Member1.jpeg') }}" alt="Leader">
+                </div>
+
+                <div class="leader-info">
+                    <span class="leader-badge">
+                        👑 LEADER
+                    </span>
+                    <h2>Kyle Kristan M. Manantan</h2>
+                    <h4>Founder & Team Leader</h4>
+
+                    <p>
+                        Leading the team with innovative ideas,
+                        software development,
+                        networking,
+                        and digital solutions.
+                    </p>
+                    <button class="profile-btn">
+                        View Profile
+                    </button>
+                </div>
+            </div>
+
+            <div class="members">
+                <div class="member" onclick="showLeader('Kyle Kristan')">
+                    <img src="{{ url_for('static', filename='images/Member1.jpeg') }}">
+                    <h3>Kyle Kristan M. Manantan</h3>
+                    <span>Web Development</span>
+                </div>
+
+                <div class="member" onclick="showMember('james')">
+                    <img src="{{ url_for('static', filename='images/Member2.jpeg') }}">
+                    <h3>James Pascual</h3>
+                    <span>IT Support</span>
+                </div>
+
+                <div class="member" onclick="showMember('mark')">
+                    <img src="{{ url_for('static', filename='images/.jpeg') }}">
+                    <h3>Mark EJ Delos Angeles</h3>
+                    <span>Hardware and Networking</span>
+                </div>
+
+                <div class="member" onclick="showMember('jessie')">
+                    <img src="{{ url_for('static', filename='images/Member3.jpeg') }}">
+                    <h3>Jessie Kris Dagdag</h3>
+                    <span>Hardware</span>
+                </div>
+
+                <div class="member" onclick="showMember('john')">
+                    <img src="{{ url_for('static', filename='images/Member4.jpeg') }}">
+                    <h3>John Paul Nunez</h3>
+                    <span>Front - End</span>
+                </div>
+
+                <div class="member" onclick="showMember('justin')">
+                    <img src="{{ url_for('static', filename='images/Member5.jpeg') }}">
+                    <h3>Justin P. Imbag</h3>
+                    <span>App - Developer</span>
+                </div>
+
+                <div class="member" onclick="showMember('louie')">
+                    <img src="{{ url_for('static', filename='images/Member7.jpeg') }}">
+                    <h3>Louie Nhelson Puno</h3>
+                    <span>Basic Programming C# and Networking Administraion</span>
+                </div>
+
+                <div class="member" onclick="showMember('kirby')">
+                    <img src="{{ url_for('static', filename='images/Member8.jpeg') }}">
+                    <h3>John Kirby Aguilar</h3>
+                    <span>Currently Learning Back End and Ethical Hacking</span>
+                </div>
+            </div>
+        </div>
+
+    </section>
+    <section class="section-padding" id="services" style="background-color: #ffffff;">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Our Services</span>
+                <h3 class="section-title">Comprehensive Solutions for Your Business</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">We provide a wide range of IT services to help
+                    your business grow and succeed.</p>
+            </div>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="sc-icon-wrapper blue-icon"><i class="fa-solid fa-code"></i></div>
+                    <h4>Web Development</h4>
+                    <ul>
+                        <li>Portfolio Websites</li>
+                        <li>Business Websites</li>
+                        <li>E-Commerce Websites</li>
+                    </ul>
+                    <a href="#" class="learn-more">Learn More <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="service-card">
+                    <div class="sc-icon-wrapper orange-icon"><i class="fa-solid fa-cubes"></i></div>
+                    <h4>Front-End Development</h4>
+                    <ul>
+                        <li>Responsive Design</li>
+                        <li>UI Components</li>
+                        <li>Interactive Interfaces</li>
+                    </ul>
+                    <a href="#" class="learn-more">Learn More <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="service-card">
+                    <div class="sc-icon-wrapper green-icon"><i class="fa-solid fa-network-wired"></i></div>
+                    <h4>Hardware & Networking</h4>
+                    <ul>
+                        <li>Network Installation</li>
+                        <li>Server Configuration</li>
+                        <li>System Integration</li>
+                    </ul>
+                    <a href="#" class="learn-more">Learn More <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="service-card">
+                    <div class="sc-icon-wrapper blue-icon"><i class="fa-solid fa-headset"></i></div>
+                    <h4>IT Support</h4>
+                    <ul>
+                        <li>Technical Support</li>
+                        <li>System Maintenance</li>
+                        <li>Troubleshooting</li>
+                    </ul>
+                    <a href="#" class="learn-more">Learn More <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="service-card">
+                    <div class="sc-icon-wrapper orange-icon"><i class="fa-solid fa-microchip"></i></div>
+                    <h4>Hardware</h4>
+                    <ul>
+                        <li>PC Assembly</li>
+                        <li>Hardware Upgrades</li>
+                        <li>Maintenance</li>
+                    </ul>
+                    <a href="#" class="learn-more">Learn More <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="service-card">
+                    <div class="sc-icon-wrapper orange-icon"><i class="fa-solid fa"></i></div>
+                    <h4>App Developer</h4>
+                    <ul>
+                        <li></li>
+                        <li></li>
+                        <li></li>
+                    </ul>
+                    <a href="#" class="learn-more">Learn More <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="service-card">
+                    <div class="sc-icon-wrapper orange-icon"><i class="fa-solid fa"></i></div>
+                    <h4>Basic Programming C# and IT Networking Administraion</h4>
+                    <ul>
+                        <li></li>
+                        <li></li>
+                        <li></li>
+                    </ul>
+                    <a href="#" class="learn-more">Learn More <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="service-card">
+                    <div class="sc-icon-wrapper orange-icon"><i class="fa-solid fa"></i></div>
+                    <h4>Currently Learning Back End and Ethical Hac</h4>
+                    <ul>
+                        <li></li>
+                        <li></li>
+                        <li></li>
+                    </ul>
+                    <a href="#" class="learn-more">Learn More <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="{{ url_for('static', filename='js/nav-auth.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/feature.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
+</html>

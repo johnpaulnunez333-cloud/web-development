@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | MDW Admin Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-style.css') }}">
+</head>
+<body>
+
+    <div id="main-panel-wrapper" style="display: none;">
+        <aside>
+            <div>
+                <div class="sidebar-brand">
+                    <i class="fa-solid fa-square-poll-vertical" style="color: var(--db-primary-blue);"></i>
+                    <div>MDW <span style="display:inline;">ADMIN PANEL</span></div>
+                </div>
+                <ul class="menu-list">
+                    <li class="menu-item active" data-target="dashboard"><a href="#"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
+                    <li class="menu-item" data-target="clients"><a href="#"><i class="fa-solid fa-users"></i> Clients</a></li>
+                    <li class="menu-item" data-target="projects"><a href="#"><i class="fa-solid fa-folder"></i> Projects</a></li>
+                    <li class="menu-item" data-target="services"><a href="#"><i class="fa-solid fa-layer-group"></i> Services</a></li>
+                    <li class="menu-item" data-target="team"><a href="#"><i class="fa-solid fa-user-tie"></i> Team Members</a></li>
+                    <li class="menu-item" data-target="messages"><a href="#"><i class="fa-solid fa-envelope"></i> Messages</a></li>
+                    <li class="menu-item" data-target="analytics"><a href="#"><i class="fa-solid fa-chart-line"></i> Analytics</a></li>
+                    <li class="menu-item" data-target="settings"><a href="#"><i class="fa-solid fa-gear"></i> Settings</a></li>
+                </ul>
+            </div>
+            <a id="logout-trigger" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </aside>
+
+        <main>
+            <div class="db-header">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="profile-area">
+                    <div class="notif-wrapper">
+                        <div class="notif-bell" id="bell-btn">
+                            <i class="fa-regular fa-bell"></i>
+                            <div class="notif-badge" id="bell-badge"></div>
+                        </div>
+                        <div class="notif-dropdown" id="notif-box">
+                            <div class="notif-header">
+                                <span>Notifications</span>
+                                <a href="#" style="color: var(--db-primary-blue); text-decoration: none; font-size: 0.75rem;">Mark all as read</a>
+                            </div>
+                            <div class="notif-list">
+                                <a href="#" class="notif-dropdown-item">
+                                    <i class="fa-solid fa-circle" style="color: var(--status-progress); font-size: 0.5rem;"></i>
+                                    <div>
+                                        <p><strong>Juan Dela Cruz</strong> sent a new system message inquiry.</p>
+                                        <span>2 hours ago</span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="user-pill">
+                        <div class="mini-avatar"></div>
+                        <div class="info">
+                            <h5>Admin</h5>
+                            <p>Administrator</p>
+                        </div>
+                        <i class="fa-solid fa-chevron-down" style="font-size:0.7rem; margin-left:5px; color:var(--db-text-muted);"></i>
+                    </div>
+                </div>
+            </div>
+
+            <section id="dashboard" class="dashboard-section active-section">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="m-icon m-blue"><i class="fa-regular fa-folder"></i></div>
+                        <div class="m-info"><p>Total Projects</p><h3>120</h3></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-icon m-green"><i class="fa-solid fa-user-group"></i></div>
+                        <div class="m-info"><p>Total Clients</p><h3>80</h3></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-icon m-orange"><i class="fa-regular fa-envelope"></i></div>
+                        <div class="m-info"><p>Messages</p><h3>35</h3></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-icon m-purple"><i class="fa-solid fa-users-gear"></i></div>
+                        <div class="m-info"><p>Team Members</p><h3>12</h3></div>
+                    </div>
+                </div>
+
+                <div class="dashboard-content-layout">
+                    <div class="panel">
+                        <div class="panel-title-bar">
+                            <h3>Recent Projects</h3>
+                            <a href="#" class="view-all-btn">View All</a>
+                        </div>
+                        <div class="data-list">
+                            <div class="data-item">
+                                <div class="item-identity">
+                                    <div class="item-img"></div>
+                                    <div class="item-details"><h4>E-Commerce Website</h4><p>Client: ABC Store</p></div>
+                                </div>
+                                <span class="status-badge in-progress">In Progress</span>
+                            </div>
+                            <div class="data-item">
+                                <div class="item-identity">
+                                    <div class="item-img"></div>
+                                    <div class="item-details"><h4>Inventory System</h4><p>Client: Retail Corp.</p></div>
+                                </div>
+                                <span class="status-badge completed">Completed</span>
+                            </div>
+                        </div>
+
+                        <div class="panel-title-bar" style="margin-top: 30px; margin-bottom: 15px;">
+                            <h3>Messages</h3>
+                        </div>
+                        <div class="data-item" style="border:none; padding:0;">
+                            <div class="item-identity">
+                                <div class="item-img"></div>
+                                <div class="item-details">
+                                    <h4>Juan Dela Cruz</h4>
+                                    <p style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:280px;">Good day! I would like to inquire about...</p>
+                                </div>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--db-text-muted);">2h ago</span>
+                        </div>
+                    </div>
+
+                    <div class="panel" style="display:flex; flex-direction:column; justify-content:space-between;">
+                        <div>
+                            <div class="panel-title-bar">
+                                <h3>Project Status Overview</h3>
+                            </div>
+                            <div class="chart-container">
+                                <div class="donut-chart"></div>
+                                <div class="chart-legends">
+                                    <div class="legend-row"><div class="bullet" style="background: var(--status-completed)"></div> Completed <span class="val">45 (38%)</span></div>
+                                    <div class="legend-row"><div class="bullet" style="background: var(--status-progress)"></div> In Progress <span class="val">50 (42%)</span></div>
+                                    <div class="legend-row"><div class="bullet" style="background: var(--status-pending)"></div> Pending <span class="val">25 (20%)</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 35px;">
+                            <div class="panel-title-bar" style="margin-bottom:5px;">
+                                <h3>Team Members</h3>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div class="avatar-stack">
+                                    <div class="stacked-avatar" style="background-image: url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'); background-size: cover; background-position: center;"></div>
+                                    <div class="stacked-avatar" style="background-image: url('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80'); background-size: cover; background-position: center;"></div>
+                                    <div class="stacked-avatar" style="background-image: url('https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80'); background-size: cover; background-position: center;"></div>
+                                    <div class="stacked-avatar" style="background-image: url('https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80'); background-size: cover; background-position: center;"></div>
+                                    <div class="stacked-avatar" style="background-image: url('https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80'); background-size: cover; background-position: center;"></div>
+                                    <div class="stack-counter">+7</div>
+                                </div>
+                                <span style="font-size:0.8rem; color:#10b981; font-weight:600;"><span style="font-size:1.1rem; font-weight:700;">5</span> Active</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="clients" class="dashboard-section">
+                <div class="panel"><div class="panel-title-bar"><h3>Client Management Directory</h3></div><p style="color: var(--db-text-muted); font-size: 0.9rem;">Dito makikita ang listahan ng lahat ng iyong kliyente.</p></div>
+            </section>
+            <section id="projects" class="dashboard-section">
+                <div class="panel"><div class="panel-title-bar"><h3>Project Management Directory</h3></div><p style="color: var(--db-text-muted); font-size: 0.9rem;">Dito makikita ang detalyadong listahan ng lahat ng ginagawang system at applications.</p></div>
+            </section>
+            <section id="services" class="dashboard-section">
+                <div class="panel"><div class="panel-title-bar"><h3>Core Services</h3></div><p style="color: var(--db-text-muted); font-size: 0.9rem;">Dito pwedeng i-configure ang mga serbisyong iniaalok ng system.</p></div>
+            </section>
+            <section id="team" class="dashboard-section">
+                <div class="panel">
+                    <div class="panel-title-bar"><h3>Dev Team Members</h3></div>
+                    <p style="color: var(--db-text-muted); font-size: 0.9rem; margin-bottom: 20px;">Listahan at roles ng mga programmers/administrators.</p>
+
+                    <div class="team-profile-grid">
+                        <div class="team-profile-card">
+                            <div class="team-profile-header">
+                                <div class="team-profile-avatar">LP</div>
+                                <div>
+                                    <h4>Louie Nhelson Puno</h4>
+                                    <span class="team-profile-status">Single</span>
+                                </div>
+                            </div>
+                            <ul class="team-profile-details">
+                                <li><span>Address</span><strong>Sibonga, Cebu</strong></li>
+                                <li><span>Birthday</span><strong>September 10</strong></li>
+                                <li><span>Religion</span><strong>Roman Catholic</strong></li>
+                                <li><span>IT Background</span><span class="it-badge it-yes">Yes</span></li>
+                            </ul>
+                        </div>
+
+                        <div class="team-profile-card">
+                            <div class="team-profile-header">
+                                <div class="team-profile-avatar">JA</div>
+                                <div>
+                                    <h4>John Kirby Aguilar</h4>
+                                    <span class="team-profile-status">Single</span>
+                                </div>
+                            </div>
+                            <ul class="team-profile-details">
+                                <li><span>Address</span><strong>Alibayon, Magpet, North Cotabato</strong></li>
+                                <li><span>Birthday</span><strong>August 7, 2006</strong></li>
+                                <li><span>Religion</span><strong>Iglesia ni Cristo</strong></li>
+                                <li><span>IT Background</span><span class="it-badge it-yes">Yes</span></li>
+                            </ul>
+                        </div>
+
+                        <div class="team-profile-card">
+                            <div class="team-profile-header">
+                                <div class="team-profile-avatar">JP</div>
+                                <div>
+                                    <h4>James Pascual</h4>
+                                    <span class="team-profile-status">Single</span>
+                                </div>
+                            </div>
+                            <ul class="team-profile-details">
+                                <li><span>Address</span><strong>San Mateo, Quirino, Isabela</strong></li>
+                                <li><span>Birthday</span><strong>July 17, 2000</strong></li>
+                                <li><span>Religion</span><strong>Buddhism</strong></li>
+                                <li><span>IT Background</span><span class="it-badge it-yes">Yes</span></li>
+                            </ul>
+                        </div>
+
+                        <div class="team-profile-card">
+                            <div class="team-profile-header">
+                                <div class="team-profile-avatar">MD</div>
+                                <div>
+                                    <h4>Mark EJ Delos Angeles</h4>
+                                    <span class="team-profile-status">Single</span>
+                                </div>
+                            </div>
+                            <ul class="team-profile-details">
+                                <li><span>Address</span><strong>2 St. Dominic Dela Costa Homes, Barangka, Marikina City</strong></li>
+                                <li><span>Birthday</span><strong>March 4, 1997</strong></li>
+                                <li><span>Religion</span><strong>Catholic</strong></li>
+                                <li><span>IT Background</span><span class="it-badge it-yes">Yes</span></li>
+                            </ul>
+                        </div>
+
+                        <div class="team-profile-card">
+                            <div class="team-profile-header">
+                                <div class="team-profile-avatar">JN</div>
+                                <div>
+                                    <h4>John Paul O. Nuñez</h4>
+                                    <span class="team-profile-status">Single</span>
+                                </div>
+                            </div>
+                            <ul class="team-profile-details">
+                                <li><span>Address</span><strong>Tudela, Cebu</strong></li>
+                                <li><span>Birthday</span><strong>February 20, 2008</strong></li>
+                                <li><span>Religion</span><strong>Catholic</strong></li>
+                                <li><span>IT Background</span><span class="it-badge it-yes">Yes</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section id="messages" class="dashboard-section">
+                <div class="panel"><div class="panel-title-bar"><h3>Inbox Messages</h3></div><p style="color: var(--db-text-muted); font-size: 0.9rem;">Dito nakalagay ang mga full dynamic chats at inquiries mula sa labas.</p></div>
+            </section>
+            <section id="analytics" class="dashboard-section">
+                <div class="panel"><div class="panel-title-bar"><h3>System Performance Analytics</h3></div><p style="color: var(--db-text-muted); font-size: 0.9rem;">Dito ilalagay ang mga system data charts at monthly monitoring tables.</p></div>
+            </section>
+            <section id="settings" class="dashboard-section">
+                <div class="panel"><div class="panel-title-bar"><h3>Global Configurations Settings</h3></div><p style="color: var(--db-text-muted); font-size: 0.9rem;">Dito pwedeng palitan ang password, pangalan ng admin, at database properties.</p></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
