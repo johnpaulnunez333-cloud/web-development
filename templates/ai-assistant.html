@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ai-assistant.css') }}">
+</head>
+
+<body>
+    <nav class="ai-navbar">
+        <div class="ai-logo">
+            <img src="{{ url_for('static', filename='images/Logo.png') }}" alt="MDW Logo">
+            MDW Assistant
+        </div>
+        <button class="ai-nav-toggle" id="aiNavToggle" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+        <ul class="ai-nav-links" id="aiNavList">
+            <li><a href="{{ url_for('index') }}">Home</a></li>
+            <li><a href="{{ url_for('portfolio') }}">Portfolio</a></li>
+            <li><a href="{{ url_for('packet_tracer') }}">Packet Tracer</a></li>
+            <li><a href="{{ url_for('chat') }}">Conversation</a></li>
+            <li><a href="{{ url_for('ai_assistant') }}" class="active">AI Assistant</a></li>
+            <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        </ul>
+    </nav>
+
+    <div class="ai-layout">
+        <div class="ai-chat-container">
+            <div class="ai-chat-header">
+                <div class="ai-avatar"><i class="fa-solid fa-robot"></i></div>
+                <div>
+                    <h4>MDW IT Assistant</h4>
+                    <span>Networking &middot; Programming &middot; IT Support</span>
+                </div>
+            </div>
+
+            <div class="ai-messages" id="aiMessages">
+                <div class="ai-message system">
+                    <div class="bubble">Ask me anything about networking, programming, or IT — I'll do my best to
+                        help.</div>
+                </div>
+            </div>
+
+            <div class="ai-input-area">
+                <div class="ai-input-wrap">
+                    <input type="text" id="aiInput" placeholder="Ask about networking, code, or IT..."
+                        autocomplete="off" maxlength="1000">
+                    <button class="ai-send-btn" id="aiSendBtn">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+                <p class="ai-scope-note">This assistant only answers questions about networking, programming, and
+                    IT-related topics.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/ai-assistant.js') }}"></script>
+</body>
+
+</html>
