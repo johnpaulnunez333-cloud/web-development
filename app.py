@@ -24,6 +24,7 @@ limiter = Limiter(get_remote_address, app=app, default_limits=[])
 users = {}
 chat_history = []
 online_users = {}
+site_visitors = {}
 failed_login_attempts = {}
 
 MAX_HISTORY = 100
@@ -369,6 +370,22 @@ def handle_chat_message(data):
     emit('chat_message', message, broadcast=True)
 
 
+@socketio.on('connect', namespace='/site')
+def handle_site_connect():
+    if 'user_id' not in session:
+        return False
+
+    site_visitors[request.sid] = True
+    emit('visitor_count', len(site_visitors), broadcast=True, namespace='/site')
+
+
+@socketio.on('disconnect', namespace='/site')
+def handle_site_disconnect():
+    site_visitors.pop(request.sid, None)
+    emit('visitor_count', len(site_visitors), broadcast=True, namespace='/site')
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+
