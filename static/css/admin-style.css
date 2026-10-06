@@ -718,3 +718,19 @@ main {
         grid-template-columns: 1fr;
     }
 }
+
+@media (max-width: 768px) {
+    aside {
+        position: fixed;
+        top: 0;
+        left: -260px; /* Nakatago sa gilid by default */
+        width: 250px;
+        height: 100vh;
+        z-index: 1000;
+        transition: left 0.3s ease-in-out;
+    }
+
+    aside.active {
+        left: 0; /* Lalabas kapag idinagdag ang class na 'active' */
+    }
+}
