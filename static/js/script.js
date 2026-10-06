@@ -35,14 +35,18 @@ window.addEventListener("scroll", () => {
 
 document.querySelectorAll('a[href^="#"]').forEach(link => {
     link.addEventListener("click", function (e) {
-        e.preventDefault();
-
-        document.querySelector(this.getAttribute("href"))
-            .scrollIntoView({
+        const href = this.getAttribute("href");
+        
+        // I-check kung valid CSS selector at hindi lang "#" o JS trigger
+        if (href !== "#" && document.querySelector(href)) {
+            e.preventDefault();
+            document.querySelector(href).scrollIntoView({
                 behavior: "smooth"
             });
+        }
     });
 });
+
 
 const topBtn = document.getElementById("topBtn");
 
