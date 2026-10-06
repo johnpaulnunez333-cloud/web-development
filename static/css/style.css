@@ -1126,3 +1126,28 @@ footer {
         height: 160px;
     }
 }
+
+@media(max-width:768px) {
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        gap: 10px;
+    }
+
+    /* Itago ang mahabang sub-title ng logo kapag mobile view */
+    .logo span {
+        display: none;
+    }
+
+    .logo h2, .logo {
+        font-size: 20px;
+        white-space: nowrap;
+    }
+
+    .visitor-badge {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+}
