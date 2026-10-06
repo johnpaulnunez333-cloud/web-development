@@ -64,21 +64,29 @@ topBtn.onclick = () => {
 const counters = document.querySelectorAll(".stat-info h3");
 
 counters.forEach(counter => {
-    const update = () => {
-        const target = +counter.innerText.replace("+", "");
-        const count = +counter.getAttribute("data-count") || 0;
+    const rawText = counter.innerText.trim();
+    // Kung hindi pure number (tulad ng "24/7"), huwag i-run ang counter animation
+    if (isNaN(parseInt(rawText))) {
+        return; 
+    }
 
+    const target = parseInt(rawText.replace("+", ""));
+    let count = 0;
+
+    const update = () => {
         if (count < target) {
-            counter.setAttribute("data-count", count + 1);
-            counter.innerText = (count + 1) + "+";
+            count++;
+            counter.innerText = count + "+";
             setTimeout(update, 20);
         } else {
             counter.innerText = target + "+";
         }
     }
 
+    counter.innerText = "0+";
     update();
 });
+
 
 function showMember(name) {
     alert("Profile ni " + name);
