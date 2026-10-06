@@ -72,3 +72,34 @@ document.addEventListener('click', function (e) {
         notifBox.classList.remove('show-notif');
     }
 });
+const aside = document.querySelector('aside');
+document.addEventListener('click', (e) => {
+    if (window.innerWidth <= 768 && aside && !aside.contains(e.target)) {
+        aside.classList.remove('active');
+    }
+});
+
+// 2. Swipe Left para maitago ang Sidebar
+let touchStartX = 0;
+let touchEndX = 0;
+
+if (aside) {
+    aside.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, false);
+
+    aside.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        if (touchStartX - touchEndX > 50) {
+            aside.classList.remove('active');
+        }
+    }, false);
+}
+
+menuItems.forEach(item => {
+    item.addEventListener('click', () => {
+        if (window.innerWidth <= 768 && aside) {
+            aside.classList.remove('active');
+        }
+    });
+});
