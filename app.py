@@ -293,11 +293,20 @@ AI_PROVIDERS = {
     'openai': {
         'base_url': 'https://api.openai.com/v1',
         'model': 'gpt-4-turbo-preview',
+    },
+    'gemini': {
+        'base_url': 'https://generativelanguage.googleapis.com/v1beta/openai',
+        'model': 'gemini-1.5-flash',
     }
 }
 
 AI_PROVIDER = os.environ.get('AI_PROVIDER', 'openrouter')
-AI_API_KEY = os.environ.get('AI_API_KEY', '')
+AI_API_KEY = (
+    os.environ.get('AI_API_KEY') or 
+    os.environ.get('GEMINI_API_KEY') or 
+    os.environ.get('DEEPSEEK_API_KEY') or 
+    os.environ.get('OPENAI_API_KEY') or ''
+)
 
 AI_SYSTEM_PROMPT = (
     "You are the MDW IT Assistant, a helpful support assistant for Manantan Digital Works. "
