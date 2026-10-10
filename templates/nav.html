@@ -1,0 +1,24 @@
+<header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='images/Logo.jpg') }}" alt="MDW logo">
+        <span>Manantan Digital Works</span>
+    </a>
+    <nav class="nav-links" id="navList">
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('portfolio') }}">Portfolio</a>
+        <a href="{{ url_for('packet_tracer') }}">Packet Tracer</a>
+        <a href="{{ url_for('chat') }}" class="{{ 'active' if active == 'chat' }}">Conversation</a>
+        <a href="{{ url_for('ai_assistant') }}" class="{{ 'active' if active == 'assistant' }}">AI Assistant</a>
+        <a href="{{ url_for('quiz') }}" class="{{ 'active' if active == 'quiz' }}">Skills Quiz</a>
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active == 'dashboard' }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+    {% if user %}
+    <a class="nav-user" href="{{ url_for('choose_avatar') }}" title="Change your avatar">
+        <img class="avatar avatar-sm" src="/avatar/{{ user.id }}?v={{ user.avatar_version }}" alt="{{ user.full_name }}">
+    </a>
+    {% endif %}
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+    </button>
+</header>
