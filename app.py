@@ -320,7 +320,7 @@ def set_secure_headers(response):
 
 
 AI_PRESETS = {
-    'gemini': ('https://generativelanguage.googleapis.com/v1beta/openai', 'gemini-2.5-flash'),
+    'gemini': ('https://generativelanguage.googleapis.com/v1beta/openai', 'gemini-3.8-flash'),
     'deepseek': ('https://api.deepseek.com', 'deepseek-chat'),
     'openrouter': ('https://openrouter.ai/api/v1', 'qwen/qwen3-coder:free'),
     'openai': ('https://api.openai.com/v1', 'gpt-4o-mini'),
