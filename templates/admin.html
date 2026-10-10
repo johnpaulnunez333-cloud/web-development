@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>MDW Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body data-base="{{ base }}" data-user-id="{{ user.id }}">
+    <div class="admin-wrap">
+        <aside class="admin-side" id="adminSide">
+            <div class="admin-brand"><i class="fa-solid fa-shield-halved"></i> MDW Admin</div>
+            <nav class="admin-menu" id="adminMenu">
+                <button type="button" class="menu-btn active" data-view="overview"><i class="fa-solid fa-chart-pie"></i> Overview</button>
+                <button type="button" class="menu-btn" data-view="members"><i class="fa-solid fa-users"></i> Members</button>
+                <button type="button" class="menu-btn" data-view="results"><i class="fa-solid fa-clipboard-check"></i> Quiz results</button>
+                <button type="button" class="menu-btn" data-view="questions"><i class="fa-solid fa-circle-question"></i> Questions</button>
+                <button type="button" class="menu-btn" data-view="chat"><i class="fa-solid fa-comments"></i> Chat</button>
+            </nav>
+            <a class="menu-btn exit-link" href="{{ url_for('logout') }}"><i class="fa-solid fa-right-from-bracket"></i> Sign out</a>
+        </aside>
+
+        <main class="admin-main">
+            <header class="admin-top">
+                <button type="button" class="btn btn-ghost side-toggle" id="sideToggle" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+                <h1 id="viewTitle">Overview</h1>
+            </header>
+
+            <section class="view" id="view-overview">
+                <div class="metric-grid" id="metricGrid"></div>
+                <div class="two-col">
+                    <div class="card">
+                        <h3>Skill levels</h3>
+                        <div class="bar-list" id="levelBars"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Newest members</h3>
+                        <div class="mini-list" id="recentMembers"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="view" id="view-members" hidden>
+                <div class="card">
+                    <div class="toolbar">
+                        <input type="search" id="memberSearch" placeholder="Search by name or email" aria-label="Search members">
+                    </div>
+                    <div class="table-wrap"><table class="data-table" id="membersTable"></table></div>
+                </div>
+            </section>
+
+            <section class="view" id="view-results" hidden>
+                <div class="card">
+                    <div class="table-wrap"><table class="data-table" id="resultsTable"></table></div>
+                </div>
+            </section>
+
+            <section class="view" id="view-questions" hidden>
+                <div class="card">
+                    <h3>Add a question</h3>
+                    <form id="questionForm" class="q-form" novalidate>
+                        <select id="qCategory" aria-label="Category"></select>
+                        <input type="text" id="qText" placeholder="Question" maxlength="300" aria-label="Question">
+                        <div class="q-options">
+                            <label><input type="radio" name="qAnswer" value="0" checked> <input type="text" class="q-opt" placeholder="Option A" maxlength="120"></label>
+                            <label><input type="radio" name="qAnswer" value="1"> <input type="text" class="q-opt" placeholder="Option B" maxlength="120"></label>
+                            <label><input type="radio" name="qAnswer" value="2"> <input type="text" class="q-opt" placeholder="Option C" maxlength="120"></label>
+                            <label><input type="radio" name="qAnswer" value="3"> <input type="text" class="q-opt" placeholder="Option D" maxlength="120"></label>
+                        </div>
+                        <p class="muted small">Select the radio button next to the correct answer.</p>
+                        <div class="form-error" id="questionError" role="alert"></div>
+                        <button type="submit" class="btn btn-primary">Add question</button>
+                    </form>
+                </div>
+                <div class="card" style="margin-top: 20px;">
+                    <div class="toolbar">
+                        <select id="questionFilter" aria-label="Filter by category"></select>
+                    </div>
+                    <div class="table-wrap"><table class="data-table" id="questionsTable"></table></div>
+                </div>
+            </section>
+
+            <section class="view" id="view-chat" hidden>
+                <div class="card">
+                    <div class="toolbar">
+                        <span class="muted small">Latest 200 messages</span>
+                        <button type="button" class="btn btn-danger" id="clearChatBtn">Clear all messages</button>
+                    </div>
+                    <div class="table-wrap"><table class="data-table" id="chatTable"></table></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>
