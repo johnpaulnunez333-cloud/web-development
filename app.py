@@ -13,7 +13,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, emit
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from sqlalchemy import func
+from sqlalchemy import func, text
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -23,13 +24,39 @@ from avatars import AVATAR_KEYS, AVATAR_LABELS, render_avatar
 from quiz_data import QUESTIONS, QUIZ_PLAN
 
 
-def database_url():
-    url = os.environ.get('DATABASE_URL', '').strip()
-    if not url:
-        return 'sqlite:///mdw.db'
-    if url.startswith('postgres://'):
-        url = 'postgresql://' + url[len('postgres://'):]
-    return url
+def build_database_config():
+    raw = os.environ.get('DATABASE_URL', '').strip()
+    host = os.environ.get('DB_HOST', '').strip()
+
+    if raw:
+        url = make_url(raw)
+    elif host:
+        url = URL.create(
+            'postgresql+psycopg2',
+            username=os.environ.get('DB_USER', 'postgres'),
+            password=os.environ.get('DB_PASSWORD', ''),
+            host=host,
+            port=int(os.environ.get('DB_PORT', '5432') or 5432),
+            database=os.environ.get('DB_NAME', 'postgres')
+        )
+    else:
+        return 'sqlite:///mdw.db', {'pool_pre_ping': True}
+
+    options = {'pool_pre_ping': True, 'pool_recycle': 280}
+
+    if url.drivername.split('+')[0] in ('postgres', 'postgresql'):
+        url = url.set(drivername='postgresql+psycopg2')
+        query = dict(url.query)
+        query.setdefault('sslmode', 'require')
+        url = url.set(query=query)
+        options['pool_size'] = 5
+        options['max_overflow'] = 5
+        options['connect_args'] = {'connect_timeout': 15}
+
+    return url.render_as_string(hide_password=False), options
+
+
+DATABASE_URI, ENGINE_OPTIONS = build_database_config()
 
 
 app = Flask(__name__)
@@ -40,8 +67,8 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('RENDER')) or os.environ.get('FLASK_ENV') == 'production'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url()
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True, 'pool_recycle': 280}
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = ENGINE_OPTIONS
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 512 * 1024
 
@@ -55,8 +82,7 @@ def user_rate_key():
 
 limiter = Limiter(get_remote_address, app=app, default_limits=[], storage_uri='memory://')
 
-# Ginawa ko nang diretsong '/admin' para hindi ka na malito sa secret path
-ADMIN_PATH = '/admin'
+ADMIN_PATH = '/' + (os.environ.get('ADMIN_PATH', 'admin').strip('/') or 'admin')
 MAX_HISTORY = 100
 LOCKOUT_THRESHOLD = 5
 LOCKOUT_DURATION_SECONDS = 300
@@ -189,11 +215,16 @@ def api_login_required(fn):
 def admin_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
+        is_api = request.path.startswith(ADMIN_PATH + '/api/')
         user = current_user()
         if not user:
+            if is_api:
+                return jsonify({'success': False, 'message': 'Please log in first.'}), 401
             return redirect(url_for('login'))
         if not user.is_admin:
-            abort(403) # 403 Forbidden para malaman mong naka-login ka pero bawal ang access
+            if is_api:
+                return jsonify({'success': False, 'message': 'Admin access required.'}), 403
+            return Response('Forbidden: this account is not an administrator.', status=403, mimetype='text/plain')
         return fn(*args, **kwargs)
     return wrapper
 
@@ -288,13 +319,52 @@ def set_secure_headers(response):
     return response
 
 
-AI_API_KEY = (
-    os.environ.get('DEEPSEEK_API_KEY') or 
-    os.environ.get('GEMINI_API_KEY') or 
-    os.environ.get('AI_API_KEY') or ''
-)
-AI_BASE_URL = os.environ.get('DEEPSEEK_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai')
-AI_MODEL = os.environ.get('DEEPSEEK_MODEL', 'gemini-1.5-flash')
+AI_PRESETS = {
+    'gemini': ('https://generativelanguage.googleapis.com/v1beta/openai', 'gemini-2.5-flash'),
+    'deepseek': ('https://api.deepseek.com', 'deepseek-chat'),
+    'openrouter': ('https://openrouter.ai/api/v1', 'qwen/qwen3-coder:free'),
+    'openai': ('https://api.openai.com/v1', 'gpt-4o-mini'),
+}
+
+
+def load_ai_config():
+    key = (os.environ.get('DEEPSEEK_API_KEY') or os.environ.get('GEMINI_API_KEY')
+           or os.environ.get('AI_API_KEY') or '').strip()
+    provider = os.environ.get('AI_PROVIDER', '').strip().lower()
+    if provider not in AI_PRESETS:
+        if key.startswith('AIza'):
+            provider = 'gemini'
+        elif key.startswith('sk-or-'):
+            provider = 'openrouter'
+        else:
+            provider = 'deepseek'
+    base_url, model = AI_PRESETS[provider]
+    base_url = os.environ.get('AI_BASE_URL') or (os.environ.get('DEEPSEEK_BASE_URL') if provider == 'deepseek' else None) or base_url
+    model = os.environ.get('AI_MODEL') or (os.environ.get('DEEPSEEK_MODEL') if provider == 'deepseek' else None) or model
+    return key, provider, base_url.strip(), model.strip()
+
+
+AI_API_KEY, AI_PROVIDER_NAME, AI_BASE_URL, AI_MODEL = load_ai_config()
+
+AI_FAILURE_HINTS = {
+    400: 'The AI provider rejected the request. Check the model name and the key type.',
+    401: 'The AI API key is invalid.',
+    402: 'The AI account has no balance left.',
+    403: 'The AI API key is not allowed to use this model or region.',
+    404: 'The AI model name or base URL is wrong, or the model was retired.',
+    429: 'The AI quota is used up or there are too many requests.',
+}
+
+
+def ai_failure_message(user, status=None, detail=''):
+    if status == 429:
+        return 'The assistant is busy right now. Please try again in a minute.'
+    if user and user.is_admin:
+        hint = AI_FAILURE_HINTS.get(status, detail or 'The AI provider returned an unexpected error.')
+        label = f'HTTP {status}' if status else 'no response'
+        return f'{hint} [{label} | {AI_PROVIDER_NAME} | {AI_MODEL}]'
+    return 'The assistant is temporarily unavailable. Please try again.'
+
 
 AI_SYSTEM_PROMPT = (
     "You are the MDW IT Assistant, a helpful support assistant for Manantan Digital Works. "
@@ -311,17 +381,29 @@ AI_SYSTEM_PROMPT = (
 
 
 @app.route('/')
+def root():
+    if current_user():
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+
+@app.route('/home')
+@login_required
 def index():
     return render_template('index.html')
 
 
 @app.route('/login')
 def login():
+    if current_user():
+        return redirect(url_for('dashboard'))
     return render_template('login.html')
 
 
 @app.route('/signup')
 def signup():
+    if current_user():
+        return redirect(url_for('dashboard'))
     return render_template('signup.html')
 
 
@@ -423,7 +505,7 @@ def ai_assistant():
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
 
 
 @app.route('/avatars/<key>.svg')
@@ -673,6 +755,7 @@ def api_dashboard():
 @api_login_required
 @limiter.limit('20 per minute', key_func=user_rate_key)
 def api_assistant():
+    user = current_user()
     if not AI_API_KEY:
         return jsonify({'success': False, 'message': 'AI assistant is not configured yet.'}), 503
 
@@ -703,13 +786,17 @@ def api_assistant():
         )
         response.raise_for_status()
         reply = response.json()['choices'][0]['message']['content']
+        if not reply or not str(reply).strip():
+            return jsonify({'success': False, 'message': 'The assistant returned an empty answer. Try rephrasing your question.'}), 502
         return jsonify({'success': True, 'reply': reply})
-    except (requests.exceptions.RequestException, KeyError, IndexError, ValueError) as error:
-        body = ''
-        if getattr(error, 'response', None) is not None:
-            body = error.response.text[:500]
-        print(f'[AI Assistant Error] {error} | {body}')
-        return jsonify({'success': False, 'message': 'The assistant is temporarily unavailable. Please try again.'}), 502
+    except requests.exceptions.HTTPError as error:
+        status = error.response.status_code if error.response is not None else None
+        body = error.response.text[:500] if error.response is not None else ''
+        print(f'[AI Assistant Error] HTTP {status} | {AI_PROVIDER_NAME} | {AI_MODEL} | {body}', flush=True)
+        return jsonify({'success': False, 'message': ai_failure_message(user, status)}), 502
+    except (requests.exceptions.RequestException, KeyError, IndexError, ValueError, TypeError) as error:
+        print(f'[AI Assistant Error] {type(error).__name__}: {error}', flush=True)
+        return jsonify({'success': False, 'message': ai_failure_message(user, None, f'{type(error).__name__}: {str(error)[:120]}')}), 502
 
 
 @socketio.on('connect')
@@ -783,7 +870,7 @@ def handle_site_disconnect():
     emit('visitor_count', len(site_visitors), broadcast=True, namespace='/site')
 
 
-@app.route('/admin')
+@app.route(ADMIN_PATH)
 @admin_required
 def admin_panel():
     return render_template('admin.html', base=ADMIN_PATH, user=current_user())
@@ -798,7 +885,7 @@ def latest_attempts_by_user():
     return latest, counts
 
 
-@app.route('/admin/api/stats')
+@app.route(ADMIN_PATH + '/api/stats')
 @admin_required
 def admin_stats():
     latest, _ = latest_attempts_by_user()
@@ -823,7 +910,7 @@ def admin_stats():
     })
 
 
-@app.route('/admin/api/users')
+@app.route(ADMIN_PATH + '/api/users')
 @admin_required
 def admin_users():
     latest, counts = latest_attempts_by_user()
@@ -846,7 +933,7 @@ def admin_users():
     return jsonify({'users': rows})
 
 
-@app.route('/admin/api/users/<int:user_id>/admin', methods=['POST'])
+@app.route(ADMIN_PATH + '/api/users/<int:user_id>/admin', methods=['POST'])
 @admin_required
 def admin_toggle_admin(user_id):
     me = current_user()
@@ -861,7 +948,7 @@ def admin_toggle_admin(user_id):
     return jsonify({'success': True})
 
 
-@app.route('/admin/api/users/<int:user_id>', methods=['DELETE'])
+@app.route(ADMIN_PATH + '/api/users/<int:user_id>', methods=['DELETE'])
 @admin_required
 def admin_delete_user(user_id):
     me = current_user()
@@ -880,7 +967,7 @@ def admin_delete_user(user_id):
     return jsonify({'success': True})
 
 
-@app.route('/admin/api/attempts')
+@app.route(ADMIN_PATH + '/api/attempts')
 @admin_required
 def admin_attempts():
     attempts = (QuizAttempt.query.options(joinedload(QuizAttempt.user))
@@ -906,14 +993,14 @@ def question_dict(q):
     }
 
 
-@app.route('/admin/api/questions')
+@app.route(ADMIN_PATH + '/api/questions')
 @admin_required
 def admin_questions():
     rows = Question.query.order_by(Question.category.asc(), Question.id.asc()).all()
     return jsonify({'questions': [question_dict(q) for q in rows], 'categories': CATEGORIES})
 
 
-@app.route('/admin/api/questions', methods=['POST'])
+@app.route(ADMIN_PATH + '/api/questions', methods=['POST'])
 @admin_required
 def admin_add_question():
     data = request.get_json(silent=True) or {}
@@ -940,7 +1027,7 @@ def admin_add_question():
     return jsonify({'success': True, 'question': question_dict(q)})
 
 
-@app.route('/admin/api/questions/<int:question_id>/toggle', methods=['POST'])
+@app.route(ADMIN_PATH + '/api/questions/<int:question_id>/toggle', methods=['POST'])
 @admin_required
 def admin_toggle_question(question_id):
     q = db.session.get(Question, question_id)
@@ -951,7 +1038,7 @@ def admin_toggle_question(question_id):
     return jsonify({'success': True, 'active': q.active})
 
 
-@app.route('/admin/api/questions/<int:question_id>', methods=['DELETE'])
+@app.route(ADMIN_PATH + '/api/questions/<int:question_id>', methods=['DELETE'])
 @admin_required
 def admin_delete_question(question_id):
     q = db.session.get(Question, question_id)
@@ -962,7 +1049,7 @@ def admin_delete_question(question_id):
     return jsonify({'success': True})
 
 
-@app.route('/admin/api/messages')
+@app.route(ADMIN_PATH + '/api/messages')
 @admin_required
 def admin_messages():
     rows = (Message.query.options(joinedload(Message.user))
@@ -970,7 +1057,7 @@ def admin_messages():
     return jsonify({'messages': [message_dict(m) for m in rows]})
 
 
-@app.route('/admin/api/messages/<int:message_id>', methods=['DELETE'])
+@app.route(ADMIN_PATH + '/api/messages/<int:message_id>', methods=['DELETE'])
 @admin_required
 def admin_delete_message(message_id):
     message = db.session.get(Message, message_id)
@@ -982,7 +1069,7 @@ def admin_delete_message(message_id):
     return jsonify({'success': True})
 
 
-@app.route('/admin/api/messages', methods=['DELETE'])
+@app.route(ADMIN_PATH + '/api/messages', methods=['DELETE'])
 @admin_required
 def admin_clear_messages():
     ids = [m.id for m in Message.query.all()]
@@ -993,10 +1080,39 @@ def admin_clear_messages():
     return jsonify({'success': True})
 
 
+def secure_tables():
+    if db.engine.dialect.name != 'postgresql':
+        return
+    try:
+        for table in db.metadata.tables:
+            db.session.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
+        db.session.commit()
+    except Exception as error:
+        db.session.rollback()
+        print(f'[MDW] WARNING: could not enable row level security: {error}', flush=True)
+
+
+def print_startup_report():
+    target = make_url(DATABASE_URI)
+    if target.host and target.host.startswith('db.') and target.host.endswith('.supabase.co'):
+        print('[MDW] WARNING: this is the Supabase direct connection, which is IPv6 only and fails on Render. Use the Session pooler connection string.', flush=True)
+    print(f"[MDW] Database: {target.drivername} | host={target.host or 'local file'} | name={target.database}", flush=True)
+    if target.get_backend_name() == 'sqlite':
+        print('[MDW] WARNING: SQLite is erased on every Render restart. Set DATABASE_URL to your Supabase database.', flush=True)
+    admin_email = os.environ.get('ADMIN_EMAIL', '').strip().lower()
+    print(f"[MDW] Admin email configured: {bool(admin_email)} | admins in database: {User.query.filter_by(is_admin=True).count()}", flush=True)
+    print(f"[MDW] Admin panel path: {ADMIN_PATH}", flush=True)
+    print(f"[MDW] AI: provider={AI_PROVIDER_NAME} | model={AI_MODEL} | key set={bool(AI_API_KEY)}", flush=True)
+    if not os.environ.get('SECRET_KEY'):
+        print('[MDW] WARNING: SECRET_KEY is not set. Everyone is logged out on every restart.', flush=True)
+
+
 with app.app_context():
     db.create_all()
+    secure_tables()
     seed_questions()
     ensure_admin()
+    print_startup_report()
 
 
 if __name__ == '__main__':
