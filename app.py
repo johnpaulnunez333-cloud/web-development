@@ -328,16 +328,30 @@ AI_PRESETS = {
 
 
 def load_ai_config():
-    key = (os.environ.get('DEEPSEEK_API_KEY') or os.environ.get('GEMINI_API_KEY')
-           or os.environ.get('AI_API_KEY') or '').strip()
+    deepseek_key = os.environ.get('DEEPSEEK_API_KEY', '').strip()
+    gemini_key = os.environ.get('GEMINI_API_KEY', '').strip()
+    generic_key = os.environ.get('AI_API_KEY', '').strip()
     provider = os.environ.get('AI_PROVIDER', '').strip().lower()
+
     if provider not in AI_PRESETS:
-        if key.startswith('AIza'):
+        if gemini_key:
             provider = 'gemini'
-        elif key.startswith('sk-or-'):
+        elif deepseek_key:
+            provider = 'deepseek'
+        elif generic_key.startswith('AIza'):
+            provider = 'gemini'
+        elif generic_key.startswith('sk-or-'):
             provider = 'openrouter'
         else:
             provider = 'deepseek'
+
+    if provider == 'gemini':
+        key = gemini_key or generic_key or deepseek_key
+    elif provider == 'deepseek':
+        key = deepseek_key or generic_key or gemini_key
+    else:
+        key = generic_key or gemini_key or deepseek_key
+
     base_url, model = AI_PRESETS[provider]
     base_url = os.environ.get('AI_BASE_URL') or (os.environ.get('DEEPSEEK_BASE_URL') if provider == 'deepseek' else None) or base_url
     model = os.environ.get('AI_MODEL') or (os.environ.get('DEEPSEEK_MODEL') if provider == 'deepseek' else None) or model
@@ -1102,7 +1116,7 @@ def print_startup_report():
     admin_email = os.environ.get('ADMIN_EMAIL', '').strip().lower()
     print(f"[MDW] Admin email configured: {bool(admin_email)} | admins in database: {User.query.filter_by(is_admin=True).count()}", flush=True)
     print(f"[MDW] Admin panel path: {ADMIN_PATH}", flush=True)
-    print(f"[MDW] AI: provider={AI_PROVIDER_NAME} | model={AI_MODEL} | key set={bool(AI_API_KEY)}", flush=True)
+    print(f"[MDW] AI: provider={AI_PROVIDER_NAME} | model={AI_MODEL} | key set={bool(AI_API_KEY)} | key starts with={AI_API_KEY[:4]} | key length={len(AI_API_KEY)}", flush=True)
     if not os.environ.get('SECRET_KEY'):
         print('[MDW] WARNING: SECRET_KEY is not set. Everyone is logged out on every restart.', flush=True)
 
