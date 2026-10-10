@@ -49,8 +49,8 @@ def build_database_config():
         query = dict(url.query)
         query.setdefault('sslmode', 'require')
         url = url.set(query=query)
-        options['pool_size'] = 5
-        options['max_overflow'] = 5
+        options['pool_size'] = 3
+        options['max_overflow'] = 2
         options['connect_args'] = {'connect_timeout': 15}
 
     return url.render_as_string(hide_password=False), options
@@ -106,7 +106,7 @@ def iso(value):
 
 
 class User(db.Model):
-    __tablename__ = 'users'
+    __tablename__ = 'mdw_users'
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
@@ -118,16 +118,16 @@ class User(db.Model):
 
 
 class Message(db.Model):
-    __tablename__ = 'messages'
+    __tablename__ = 'mdw_messages'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('mdw_users.id'), nullable=False, index=True)
     text = db.Column(db.String(500), nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
     user = db.relationship('User')
 
 
 class Question(db.Model):
-    __tablename__ = 'questions'
+    __tablename__ = 'mdw_questions'
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(40), nullable=False, index=True)
     question = db.Column(db.Text, nullable=False)
@@ -137,9 +137,9 @@ class Question(db.Model):
 
 
 class QuizAttempt(db.Model):
-    __tablename__ = 'quiz_attempts'
+    __tablename__ = 'mdw_quiz_attempts'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('mdw_users.id'), nullable=False, index=True)
     score = db.Column(db.Integer, nullable=False)
     total = db.Column(db.Integer, nullable=False)
     percent = db.Column(db.Integer, nullable=False)
