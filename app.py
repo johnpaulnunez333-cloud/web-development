@@ -285,28 +285,13 @@ def set_secure_headers(response):
     return response
 
 
-AI_PROVIDERS = {
-    'openrouter': {
-        'base_url': 'https://openrouter.ai/api/v1',
-        'model': 'qwen/qwen3-coder:free',
-    },
-    'openai': {
-        'base_url': 'https://api.openai.com/v1',
-        'model': 'gpt-4-turbo-preview',
-    },
-    'gemini': {
-        'base_url': 'https://generativelanguage.googleapis.com/v1beta/openai',
-        'model': 'gemini-1.5-flash',
-    }
-}
-
-AI_PROVIDER = os.environ.get('AI_PROVIDER', 'openrouter')
 AI_API_KEY = (
-    os.environ.get('AI_API_KEY') or 
-    os.environ.get('GEMINI_API_KEY') or 
     os.environ.get('DEEPSEEK_API_KEY') or 
-    os.environ.get('OPENAI_API_KEY') or ''
+    os.environ.get('GEMINI_API_KEY') or 
+    os.environ.get('AI_API_KEY') or ''
 )
+AI_BASE_URL = os.environ.get('DEEPSEEK_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai')
+AI_MODEL = os.environ.get('DEEPSEEK_MODEL', 'gemini-1.5-flash')
 
 AI_SYSTEM_PROMPT = (
     "You are the MDW IT Assistant, a helpful support assistant for Manantan Digital Works. "
@@ -704,14 +689,13 @@ def api_assistant():
             if role in ('user', 'assistant') and isinstance(content, str) and content.strip():
                 history.append({'role': role, 'content': content[:1500]})
 
-    provider = AI_PROVIDERS.get(AI_PROVIDER, AI_PROVIDERS['openrouter'])
     messages = [{'role': 'system', 'content': AI_SYSTEM_PROMPT}] + history + [{'role': 'user', 'content': message[:1000]}]
 
     try:
         response = requests.post(
-            f"{provider['base_url']}/chat/completions",
+            f"{AI_BASE_URL.rstrip('/')}/chat/completions",
             headers={'Authorization': f'Bearer {AI_API_KEY}', 'Content-Type': 'application/json'},
-            json={'model': provider['model'], 'messages': messages, 'max_tokens': 900, 'temperature': 0.5},
+            json={'model': AI_MODEL, 'messages': messages, 'max_tokens': 900, 'temperature': 0.5},
             timeout=45
         )
         response.raise_for_status()
