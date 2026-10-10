@@ -55,7 +55,8 @@ def user_rate_key():
 
 limiter = Limiter(get_remote_address, app=app, default_limits=[], storage_uri='memory://')
 
-ADMIN_PATH = '/' + os.environ.get('ADMIN_PATH', 'mdw-hq-7x2k').strip('/')
+# Ginawa ko nang diretsong '/admin' para hindi ka na malito sa secret path
+ADMIN_PATH = '/admin'
 MAX_HISTORY = 100
 LOCKOUT_THRESHOLD = 5
 LOCKOUT_DURATION_SECONDS = 300
@@ -189,8 +190,10 @@ def admin_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         user = current_user()
-        if not user or not user.is_admin:
-            abort(404)
+        if not user:
+            return redirect(url_for('login'))
+        if not user.is_admin:
+            abort(403) # 403 Forbidden para malaman mong naka-login ka pero bawal ang access
         return fn(*args, **kwargs)
     return wrapper
 
@@ -780,7 +783,7 @@ def handle_site_disconnect():
     emit('visitor_count', len(site_visitors), broadcast=True, namespace='/site')
 
 
-@app.route(ADMIN_PATH)
+@app.route('/admin')
 @admin_required
 def admin_panel():
     return render_template('admin.html', base=ADMIN_PATH, user=current_user())
@@ -795,7 +798,7 @@ def latest_attempts_by_user():
     return latest, counts
 
 
-@app.route(ADMIN_PATH + '/api/stats')
+@app.route('/admin/api/stats')
 @admin_required
 def admin_stats():
     latest, _ = latest_attempts_by_user()
@@ -820,7 +823,7 @@ def admin_stats():
     })
 
 
-@app.route(ADMIN_PATH + '/api/users')
+@app.route('/admin/api/users')
 @admin_required
 def admin_users():
     latest, counts = latest_attempts_by_user()
@@ -843,7 +846,7 @@ def admin_users():
     return jsonify({'users': rows})
 
 
-@app.route(ADMIN_PATH + '/api/users/<int:user_id>/admin', methods=['POST'])
+@app.route('/admin/api/users/<int:user_id>/admin', methods=['POST'])
 @admin_required
 def admin_toggle_admin(user_id):
     me = current_user()
@@ -858,7 +861,7 @@ def admin_toggle_admin(user_id):
     return jsonify({'success': True})
 
 
-@app.route(ADMIN_PATH + '/api/users/<int:user_id>', methods=['DELETE'])
+@app.route('/admin/api/users/<int:user_id>', methods=['DELETE'])
 @admin_required
 def admin_delete_user(user_id):
     me = current_user()
@@ -877,7 +880,7 @@ def admin_delete_user(user_id):
     return jsonify({'success': True})
 
 
-@app.route(ADMIN_PATH + '/api/attempts')
+@app.route('/admin/api/attempts')
 @admin_required
 def admin_attempts():
     attempts = (QuizAttempt.query.options(joinedload(QuizAttempt.user))
@@ -903,14 +906,14 @@ def question_dict(q):
     }
 
 
-@app.route(ADMIN_PATH + '/api/questions')
+@app.route('/admin/api/questions')
 @admin_required
 def admin_questions():
     rows = Question.query.order_by(Question.category.asc(), Question.id.asc()).all()
     return jsonify({'questions': [question_dict(q) for q in rows], 'categories': CATEGORIES})
 
 
-@app.route(ADMIN_PATH + '/api/questions', methods=['POST'])
+@app.route('/admin/api/questions', methods=['POST'])
 @admin_required
 def admin_add_question():
     data = request.get_json(silent=True) or {}
@@ -937,7 +940,7 @@ def admin_add_question():
     return jsonify({'success': True, 'question': question_dict(q)})
 
 
-@app.route(ADMIN_PATH + '/api/questions/<int:question_id>/toggle', methods=['POST'])
+@app.route('/admin/api/questions/<int:question_id>/toggle', methods=['POST'])
 @admin_required
 def admin_toggle_question(question_id):
     q = db.session.get(Question, question_id)
@@ -948,7 +951,7 @@ def admin_toggle_question(question_id):
     return jsonify({'success': True, 'active': q.active})
 
 
-@app.route(ADMIN_PATH + '/api/questions/<int:question_id>', methods=['DELETE'])
+@app.route('/admin/api/questions/<int:question_id>', methods=['DELETE'])
 @admin_required
 def admin_delete_question(question_id):
     q = db.session.get(Question, question_id)
@@ -959,7 +962,7 @@ def admin_delete_question(question_id):
     return jsonify({'success': True})
 
 
-@app.route(ADMIN_PATH + '/api/messages')
+@app.route('/admin/api/messages')
 @admin_required
 def admin_messages():
     rows = (Message.query.options(joinedload(Message.user))
@@ -967,7 +970,7 @@ def admin_messages():
     return jsonify({'messages': [message_dict(m) for m in rows]})
 
 
-@app.route(ADMIN_PATH + '/api/messages/<int:message_id>', methods=['DELETE'])
+@app.route('/admin/api/messages/<int:message_id>', methods=['DELETE'])
 @admin_required
 def admin_delete_message(message_id):
     message = db.session.get(Message, message_id)
@@ -979,7 +982,7 @@ def admin_delete_message(message_id):
     return jsonify({'success': True})
 
 
-@app.route(ADMIN_PATH + '/api/messages', methods=['DELETE'])
+@app.route('/admin/api/messages', methods=['DELETE'])
 @admin_required
 def admin_clear_messages():
     ids = [m.id for m in Message.query.all()]
