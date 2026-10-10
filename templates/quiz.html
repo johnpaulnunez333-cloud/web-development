@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skills Quiz | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/member.css') }}">
+</head>
+<body>
+    {% set active = 'quiz' %}
+    {% include '_nav.html' %}
+    <main class="page page-narrow">
+        <section class="card quiz-intro" id="introView">
+            <h2>Skills quiz for new members</h2>
+            <p>Answer 20 multiple-choice questions so the team can see where your skills and knowledge stand. There is no time limit, and you can retake it anytime.</p>
+            <div class="chip-row">
+                <span class="chip">Programming</span>
+                <span class="chip">Web Development</span>
+                <span class="chip">Networking</span>
+                <span class="chip">Cybersecurity</span>
+                <span class="chip">Hardware &amp; Systems</span>
+                <span class="chip">General IT</span>
+            </div>
+            <div class="form-error" id="introError" role="alert"></div>
+            <div class="button-row">
+                <button type="button" class="btn btn-primary" id="startBtn">Start quiz</button>
+                <a class="btn btn-ghost" href="{{ url_for('dashboard') }}">Skip for now</a>
+            </div>
+        </section>
+
+        <section class="card" id="questionView" hidden>
+            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+            <div class="quiz-meta">
+                <span id="categoryLabel"></span>
+                <span id="counterLabel"></span>
+            </div>
+            <h2 class="quiz-question" id="questionText"></h2>
+            <div class="option-list" id="optionList"></div>
+            <div class="form-error" id="quizError" role="alert"></div>
+            <div class="quiz-nav">
+                <button type="button" class="btn btn-ghost" id="prevBtn">Back</button>
+                <button type="button" class="btn btn-primary" id="nextBtn">Next</button>
+            </div>
+        </section>
+
+        <section id="resultView" hidden>
+            <div class="card">
+                <div class="result-top">
+                    <div class="score-ring" id="scoreRing"><strong id="scorePercent"></strong></div>
+                    <div>
+                        <span class="level-badge" id="levelBadge"></span>
+                        <h2 id="scoreLine"></h2>
+                        <p class="muted" id="resultNote"></p>
+                    </div>
+                </div>
+                <h3>Score by topic</h3>
+                <div class="bar-list" id="categoryBars"></div>
+            </div>
+            <div class="card" id="reviewCard" style="margin-top: 20px;">
+                <h3>Questions to review</h3>
+                <div class="review-list" id="reviewList"></div>
+            </div>
+            <div class="button-row" style="margin-top: 20px;">
+                <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Go to dashboard</a>
+                <button type="button" class="btn btn-ghost" id="retakeBtn">Retake quiz</button>
+            </div>
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/quiz.js') }}"></script>
+</body>
+</html>
