@@ -315,9 +315,7 @@ AI_SYSTEM_PROMPT = (
 
 @app.route('/')
 def index():
-    if not current_user():
-        return render_template('login.html')
-    return redirect(url_for('dashboard'))
+    return render_template('index.html')
 
 
 @app.route('/login')
@@ -428,7 +426,7 @@ def ai_assistant():
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('login'))
+    return redirect(url_for('index'))
 
 
 @app.route('/avatars/<key>.svg')
