@@ -44,8 +44,8 @@ async function api(path, options) {
         settings.body = JSON.stringify(settings.body);
     }
     const response = await fetch(BASE + '/api' + path, settings);
-    if (response.status === 404 || response.status === 401) {
-        window.location.href = '/login';
+    if (response.status === 401) {
+        window.location.href = BASE;
         throw new Error('unauthorized');
     }
     let data = {};
@@ -139,6 +139,7 @@ async function loadOverview() {
         ['Quiz attempts', data.attempts],
         ['Average score', data.average_percent + '%'],
         ['Chat messages', data.messages],
+        ['Books', data.books],
         ['Active questions', data.questions]
     ];
     const grid = document.getElementById('metricGrid');
@@ -385,12 +386,13 @@ function showView(name) {
 }
 
 document.getElementById('adminMenu').addEventListener('click', (e) => {
-    const button = e.target.closest('.menu-btn');
-    if (button) showView(button.dataset.view);
+    const button = e.target.closest('button.menu-btn');
+    if (button && button.dataset.view) showView(button.dataset.view);
 });
 
 document.getElementById('sideToggle').addEventListener('click', () => {
     document.getElementById('adminSide').classList.toggle('open');
 });
 
-showView('overview');
+const startView = window.location.hash.replace('#', '');
+showView(titles[startView] ? startView : 'overview');
