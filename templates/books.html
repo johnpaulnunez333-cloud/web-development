@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manantan Books | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/member.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/books.css') }}">
+</head>
+<body>
+    {% set active = 'books' %}
+    {% include '_nav.html' %}
+    <main class="page">
+        <div class="page-head books-head">
+            <div>
+                <h1>Manantan Books</h1>
+                <p class="muted">Free learning books shared by the Manantan network. Read them online or download the PDF.</p>
+            </div>
+            <div class="books-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" id="bookSearch" placeholder="Search books" aria-label="Search books">
+            </div>
+        </div>
+        <div class="book-grid" id="bookGrid"></div>
+        <p class="books-empty" id="booksEmpty" hidden></p>
+    </main>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/books.js') }}"></script>
+</body>
+</html>

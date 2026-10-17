@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Books | MDW Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-books.css') }}">
+</head>
+<body data-base="{{ base }}">
+    <div class="admin-wrap">
+        <aside class="admin-side" id="adminSide">
+            <div class="admin-brand"><i class="fa-solid fa-shield-halved"></i> MDW Admin</div>
+            <nav class="admin-menu">
+                <a class="menu-btn" href="{{ base }}#overview"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+                <a class="menu-btn" href="{{ base }}#members"><i class="fa-solid fa-users"></i> Members</a>
+                <a class="menu-btn" href="{{ base }}#results"><i class="fa-solid fa-clipboard-check"></i> Quiz results</a>
+                <a class="menu-btn" href="{{ base }}#questions"><i class="fa-solid fa-circle-question"></i> Questions</a>
+                <a class="menu-btn" href="{{ base }}#chat"><i class="fa-solid fa-comments"></i> Chat</a>
+                <a class="menu-btn active" href="{{ base }}/books"><i class="fa-solid fa-book"></i> Books</a>
+            </nav>
+            <a class="menu-btn exit-link" href="{{ base }}/logout"><i class="fa-solid fa-right-from-bracket"></i> Sign out</a>
+        </aside>
+
+        <main class="admin-main">
+            <header class="admin-top">
+                <button type="button" class="btn btn-ghost side-toggle" id="sideToggle" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+                <h1>Manantan Books</h1>
+            </header>
+
+            <div class="card">
+                <h3>Upload a book</h3>
+                <form id="bookForm" class="book-form" novalidate>
+                    <label class="form-label" for="bookTitle">Book title</label>
+                    <input type="text" id="bookTitle" maxlength="150" placeholder="Example: Python for Beginners" autocomplete="off">
+
+                    <label class="form-label" for="coverInput">Cover picture</label>
+                    <div class="cover-picker">
+                        <img id="coverPreview" class="cover-preview" alt="Cover preview" hidden>
+                        <input type="file" id="coverInput" accept="image/png,image/jpeg,image/webp">
+                    </div>
+
+                    <label class="form-label" for="pdfInput">PDF file (25 MB maximum)</label>
+                    <input type="file" id="pdfInput" accept="application/pdf,.pdf">
+
+                    <div class="progress" id="progressWrap" hidden>
+                        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+                        <span id="progressText">0%</span>
+                    </div>
+
+                    <div class="form-error" id="bookError" role="alert"></div>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Upload book</button>
+                </form>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <div class="toolbar">
+                    <h3 style="margin: 0;">Uploaded books</h3>
+                    <span class="muted small" id="storageNote"></span>
+                </div>
+                <div class="admin-book-list" id="bookList"></div>
+            </div>
+        </main>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="{{ url_for('static', filename='js/admin-books.js') }}"></script>
+</body>
+</html>

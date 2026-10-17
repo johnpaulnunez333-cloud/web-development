@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Admin sign in | MDW</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/member.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-extra.css') }}">
+</head>
+<body class="auth-body" data-base="{{ base }}">
+    <main class="auth-shell">
+        <section class="auth-card">
+            <div class="auth-brand">
+                <img src="{{ url_for('static', filename='images/Logo.jpg') }}" alt="MDW logo">
+                <span>MDW Admin Panel</span>
+            </div>
+            <h1>Admin sign in</h1>
+            <p class="auth-sub">Only administrators can continue.</p>
+            <form id="admin-login-form" novalidate>
+                <div class="field">
+                    <label for="admin-email">Admin email</label>
+                    <div class="field-box">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <input type="email" id="admin-email" placeholder="admin@example.com" autocomplete="email" required>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="admin-password">Password</label>
+                    <div class="field-box">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="admin-password" placeholder="Your password" autocomplete="current-password" required>
+                        <button type="button" class="reveal-btn" data-reveal="admin-password" aria-label="Show password"><i class="fa-regular fa-eye"></i></button>
+                    </div>
+                </div>
+                <div class="form-error" id="admin-error" role="alert"></div>
+                <button type="submit" class="btn btn-primary">Sign in to admin</button>
+            </form>
+            <div class="auth-switch">
+                <a href="{{ url_for('login') }}">Back to the member sign in</a>
+            </div>
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/auth-common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/admin-login.js') }}"></script>
+</body>
+</html>
