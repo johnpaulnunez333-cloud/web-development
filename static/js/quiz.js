@@ -17,6 +17,47 @@ let questions = [];
 let answers = {};
 let index = 0;
 let submitting = false;
+let secondsByQuestion = {};
+let questionStartedAt = 0;
+let tabSwitches = 0;
+let copyEvents = 0;
+let awaySeconds = 0;
+let hiddenAt = 0;
+let tracking = false;
+
+function flushQuestionTime() {
+    if (!tracking || !questions[index] || !questionStartedAt) return;
+    const id = questions[index].id;
+    secondsByQuestion[id] = (secondsByQuestion[id] || 0) + (Date.now() - questionStartedAt) / 1000;
+    questionStartedAt = Date.now();
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (!tracking) return;
+    if (document.hidden) {
+        tabSwitches += 1;
+        hiddenAt = Date.now();
+        flushQuestionTime();
+    } else {
+        if (hiddenAt) awaySeconds += (Date.now() - hiddenAt) / 1000;
+        hiddenAt = 0;
+        questionStartedAt = Date.now();
+    }
+});
+
+document.addEventListener('copy', () => {
+    if (tracking) copyEvents += 1;
+});
+
+function collectMetrics() {
+    flushQuestionTime();
+    return {
+        tab_switches: tabSwitches,
+        copy_events: copyEvents,
+        away_seconds: Math.round(awaySeconds),
+        question_seconds: questions.map((q) => Math.round((secondsByQuestion[q.id] || 0) * 10) / 10)
+    };
+}
 
 function showMessage(el, message) {
     el.innerText = message;
@@ -54,6 +95,13 @@ async function startQuiz() {
             questions = data.questions;
             answers = {};
             index = 0;
+            secondsByQuestion = {};
+            tabSwitches = 0;
+            copyEvents = 0;
+            awaySeconds = 0;
+            hiddenAt = 0;
+            tracking = true;
+            questionStartedAt = Date.now();
             showView('question');
             renderQuestion();
         }
@@ -104,11 +152,12 @@ async function submitQuiz() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ answers })
+            body: JSON.stringify({ answers, metrics: collectMetrics() })
         });
         const data = await response.json();
 
         if (response.ok && data.success) {
+            tracking = false;
             renderResult(data.result, data.review);
         } else {
             showMessage(quizError, data.message || 'Could not submit your answers.');
@@ -129,7 +178,9 @@ nextBtn.addEventListener('click', () => {
         return;
     }
     if (index < questions.length - 1) {
+        flushQuestionTime();
         index += 1;
+        questionStartedAt = Date.now();
         renderQuestion();
     } else {
         submitQuiz();
@@ -138,7 +189,9 @@ nextBtn.addEventListener('click', () => {
 
 prevBtn.addEventListener('click', () => {
     if (index > 0) {
+        flushQuestionTime();
         index -= 1;
+        questionStartedAt = Date.now();
         renderQuestion();
     }
 });
