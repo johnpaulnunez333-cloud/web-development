@@ -3,6 +3,7 @@ const MY_ID = Number(document.body.dataset.userId);
 
 const titles = {
     overview: 'Overview',
+    health: 'System health',
     members: 'Members',
     results: 'Quiz results',
     questions: 'Questions',
@@ -11,6 +12,7 @@ const titles = {
 
 const loaders = {
     overview: loadOverview,
+    health: () => loadHealth(false),
     members: loadMembers,
     results: loadResults,
     questions: loadQuestions,
@@ -129,6 +131,97 @@ function barRow(label, value, total) {
     return row;
 }
 
+function makeRing(percent, color, label, large) {
+    const ringEl = el('div', 'ring' + (large ? ' ring-xl' : ''));
+    ringEl.style.setProperty('--pct', percent === null ? 0 : percent);
+    ringEl.style.setProperty('--ring-color', color);
+    ringEl.appendChild(el('strong', '', label));
+    return ringEl;
+}
+
+function renderIntegrity(counts) {
+    const box = document.getElementById('integrityBox');
+    box.innerHTML = '';
+    if (!counts || counts.total === 0) {
+        box.appendChild(el('p', 'muted small', 'No quiz attempts have been checked yet.'));
+        return;
+    }
+    const cleanPercent = Math.round(counts.Low / counts.total * 100);
+    box.appendChild(makeRing(cleanPercent, '#10b981', cleanPercent + '%'));
+
+    const legend = el('div', 'integrity-legend');
+    [['Low risk', counts.Low, '#10b981'], ['Medium risk', counts.Medium, '#f97316'], ['High risk', counts.High, '#ef4444']].forEach(([name, value, color]) => {
+        const row = el('span');
+        const dot = el('i');
+        dot.style.background = color;
+        row.appendChild(dot);
+        row.appendChild(document.createTextNode(name + ': ' + value));
+        legend.appendChild(row);
+    });
+    legend.appendChild(el('span', 'muted small', 'Based on timing, tab switching, and copying. This flags suspicious behavior and cannot prove AI use.'));
+    box.appendChild(legend);
+}
+
+const STATUS_COLORS = { ok: '#10b981', warn: '#f97316', fail: '#ef4444', info: '#64748b' };
+let healthBusy = false;
+
+function overallColor(label) {
+    if (label === 'Perfect' || label === 'Healthy') return '#10b981';
+    if (label === 'Needs attention') return '#f97316';
+    return '#ef4444';
+}
+
+async function loadHealth(withAi) {
+    if (healthBusy) return;
+    healthBusy = true;
+    const checked = document.getElementById('healthChecked');
+    checked.innerText = 'Checking... this can take up to 20 seconds if a free site is asleep.';
+    try {
+        const data = await api('/health' + (withAi ? '?ai=1' : ''));
+
+        const overallRing = document.getElementById('overallRing');
+        overallRing.innerHTML = '';
+        overallRing.style.setProperty('--pct', data.overall.score);
+        overallRing.style.setProperty('--ring-color', overallColor(data.overall.label));
+        overallRing.appendChild(el('strong', '', data.overall.score + '%'));
+        document.getElementById('overallLabel').innerText = data.overall.label;
+        document.getElementById('overallNote').innerText = data.overall.label === 'Perfect'
+            ? 'Every part of the website is working.'
+            : 'Some parts need attention. Check the cards below.';
+
+        const grid = document.getElementById('healthGrid');
+        grid.innerHTML = '';
+        data.checks.forEach((check) => {
+            const card = el('div', 'health-card');
+            const label = check.score === null ? '-' : check.score + '%';
+            const ringEl = makeRing(check.score, STATUS_COLORS[check.status] || '#64748b', label, false);
+            card.appendChild(ringEl);
+
+            const info = el('div', 'health-info');
+            info.appendChild(el('h4', '', check.label));
+            info.appendChild(el('p', '', check.detail));
+            if (check.latency_ms !== null && check.latency_ms !== undefined) {
+                info.appendChild(el('span', 'latency', check.latency_ms + ' ms'));
+            }
+            card.appendChild(info);
+            grid.appendChild(card);
+        });
+        checked.innerText = 'Last checked ' + new Date(data.checked_at).toLocaleTimeString();
+    } catch (err) {
+        if (err.message !== 'unauthorized') {
+            checked.innerText = 'Could not run the checks.';
+            toast(err.message, true);
+        }
+    }
+    healthBusy = false;
+}
+
+document.getElementById('healthRefresh').addEventListener('click', () => loadHealth(false));
+document.getElementById('healthAiTest').addEventListener('click', () => loadHealth(true));
+setInterval(() => {
+    if (!document.getElementById('view-health').hidden) loadHealth(false);
+}, 60000);
+
 async function loadOverview() {
     const data = await api('/stats');
 
@@ -140,6 +233,8 @@ async function loadOverview() {
         ['Average score', data.average_percent + '%'],
         ['Chat messages', data.messages],
         ['Books', data.books],
+        ['Products', data.products],
+        ['Pending orders', data.orders_pending],
         ['Active questions', data.questions]
     ];
     const grid = document.getElementById('metricGrid');
@@ -156,6 +251,8 @@ async function loadOverview() {
     ['Beginner', 'Intermediate', 'Advanced', 'Expert'].forEach((level) => {
         levelBars.appendChild(barRow(level, data.levels[level] || 0, data.quizzed_members));
     });
+
+    renderIntegrity(data.integrity);
 
     const recent = document.getElementById('recentMembers');
     recent.innerHTML = '';
@@ -227,6 +324,19 @@ async function deleteMember(member) {
     }
 }
 
+function integrityCell(attempt) {
+    const wrap = el('div');
+    if (!attempt.risk_level) {
+        wrap.appendChild(el('span', 'muted', 'Not checked'));
+        return wrap;
+    }
+    wrap.appendChild(el('span', 'pill pill-risk-' + attempt.risk_level, attempt.risk_level + ' risk (' + attempt.risk_score + ')'));
+    const seconds = attempt.duration_seconds ? Math.floor(attempt.duration_seconds / 60) + 'm ' + (attempt.duration_seconds % 60) + 's' : '';
+    const notes = attempt.risk_reasons.length ? attempt.risk_reasons.join(' ') : 'No suspicious behavior detected.';
+    wrap.appendChild(el('span', 'reasons', (seconds ? 'Time: ' + seconds + '. ' : '') + notes));
+    return wrap;
+}
+
 async function loadResults() {
     const data = await api('/attempts');
     const rows = data.attempts.map((a) => {
@@ -235,12 +345,13 @@ async function loadResults() {
             userCell(a.name, a.email, a.avatar),
             a.score + '/' + a.total + ' (' + a.percent + '%)',
             el('span', 'pill pill-' + a.level, a.level),
+            integrityCell(a),
             el('span', 'breakdown', parts.join(' | ')),
             formatDate(a.created_at)
         ];
     });
     fillTable(document.getElementById('resultsTable'),
-        ['Member', 'Score', 'Level', 'Topics', 'Taken'], rows, 'No quiz attempts yet.');
+        ['Member', 'Score', 'Level', 'Integrity', 'Topics', 'Taken'], rows, 'No quiz attempts yet.');
 }
 
 function renderQuestions() {
