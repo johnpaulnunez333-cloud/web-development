@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-extra.css') }}">
 </head>
 <body data-base="{{ base }}" data-user-id="{{ user.id }}">
     <div class="admin-wrap">
@@ -15,11 +16,13 @@
             <div class="admin-brand"><i class="fa-solid fa-shield-halved"></i> MDW Admin</div>
             <nav class="admin-menu" id="adminMenu">
                 <button type="button" class="menu-btn active" data-view="overview"><i class="fa-solid fa-chart-pie"></i> Overview</button>
+                <button type="button" class="menu-btn" data-view="health"><i class="fa-solid fa-heart-pulse"></i> System health</button>
                 <button type="button" class="menu-btn" data-view="members"><i class="fa-solid fa-users"></i> Members</button>
                 <button type="button" class="menu-btn" data-view="results"><i class="fa-solid fa-clipboard-check"></i> Quiz results</button>
                 <button type="button" class="menu-btn" data-view="questions"><i class="fa-solid fa-circle-question"></i> Questions</button>
                 <button type="button" class="menu-btn" data-view="chat"><i class="fa-solid fa-comments"></i> Chat</button>
                 <a class="menu-btn" href="{{ base }}/books"><i class="fa-solid fa-book"></i> Books</a>
+                <a class="menu-btn" href="{{ base }}/shop"><i class="fa-solid fa-microchip"></i> Electronics shop</a>
             </nav>
             <a class="menu-btn exit-link" href="{{ base }}/logout"><i class="fa-solid fa-right-from-bracket"></i> Sign out</a>
         </aside>
@@ -42,6 +45,26 @@
                         <div class="mini-list" id="recentMembers"></div>
                     </div>
                 </div>
+                <div class="card" style="margin-top: 20px;">
+                    <h3>Quiz integrity</h3>
+                    <div class="integrity-box" id="integrityBox"></div>
+                </div>
+            </section>
+
+            <section class="view" id="view-health" hidden>
+                <div class="card health-top">
+                    <div class="ring ring-xl" id="overallRing"></div>
+                    <div class="health-summary">
+                        <h2 id="overallLabel">Checking...</h2>
+                        <p class="muted" id="overallNote">Running checks on the database, server, AI, email, shop, and business site.</p>
+                        <div class="health-actions">
+                            <button type="button" class="btn btn-ghost" id="healthRefresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                            <button type="button" class="btn btn-ghost" id="healthAiTest"><i class="fa-solid fa-robot"></i> Test AI now</button>
+                        </div>
+                        <span class="muted small" id="healthChecked"></span>
+                    </div>
+                </div>
+                <div class="health-grid" id="healthGrid"></div>
             </section>
 
             <section class="view" id="view-members" hidden>
