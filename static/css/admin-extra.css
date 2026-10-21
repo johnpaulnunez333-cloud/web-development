@@ -1,0 +1,174 @@
+.ring {
+    --pct: 0;
+    --ring-color: #38bdf8;
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: conic-gradient(var(--ring-color) calc(var(--pct) * 1%), var(--border) 0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.ring::before {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    background: var(--panel);
+}
+
+.ring strong {
+    position: relative;
+    font-size: 1.1rem;
+}
+
+.ring-xl {
+    width: 168px;
+    height: 168px;
+}
+
+.ring-xl::before {
+    inset: 14px;
+}
+
+.ring-xl strong {
+    font-size: 2rem;
+}
+
+.health-top {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.health-summary {
+    flex: 1;
+    min-width: 220px;
+}
+
+.health-summary h2 {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+}
+
+.health-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0 8px;
+}
+
+.health-actions .btn {
+    padding: 8px 14px;
+    font-size: 0.84rem;
+}
+
+.health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.health-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.health-card .ring {
+    width: 76px;
+    height: 76px;
+}
+
+.health-card .ring::before {
+    inset: 8px;
+}
+
+.health-card .ring strong {
+    font-size: 0.95rem;
+}
+
+.health-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.health-info h4 {
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+    overflow-wrap: anywhere;
+}
+
+.health-info p {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.health-info .latency {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.7rem;
+    color: #7dd3fc;
+}
+
+.integrity-box {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.integrity-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.86rem;
+}
+
+.integrity-legend span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.integrity-legend i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.pill-risk-Low {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+}
+
+.pill-risk-Medium {
+    background: rgba(249, 115, 22, 0.15);
+    color: #fb923c;
+}
+
+.pill-risk-High {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
+.reasons {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    max-width: 320px;
+    line-height: 1.4;
+}
