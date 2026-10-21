@@ -1,0 +1,14 @@
+<aside class="admin-side" id="adminSide">
+    <div class="admin-brand"><i class="fa-solid fa-shield-halved"></i> MDW Admin</div>
+    <nav class="admin-menu">
+        <a class="menu-btn" href="{{ base }}#overview"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+        <a class="menu-btn" href="{{ base }}#health"><i class="fa-solid fa-heart-pulse"></i> System health</a>
+        <a class="menu-btn" href="{{ base }}#members"><i class="fa-solid fa-users"></i> Members</a>
+        <a class="menu-btn" href="{{ base }}#results"><i class="fa-solid fa-clipboard-check"></i> Quiz results</a>
+        <a class="menu-btn" href="{{ base }}#questions"><i class="fa-solid fa-circle-question"></i> Questions</a>
+        <a class="menu-btn" href="{{ base }}#chat"><i class="fa-solid fa-comments"></i> Chat</a>
+        <a class="menu-btn {{ 'active' if admin_active == 'books' }}" href="{{ base }}/books"><i class="fa-solid fa-book"></i> Books</a>
+        <a class="menu-btn {{ 'active' if admin_active == 'shop' }}" href="{{ base }}/shop"><i class="fa-solid fa-microchip"></i> Electronics shop</a>
+    </nav>
+    <a class="menu-btn exit-link" href="{{ base }}/logout"><i class="fa-solid fa-right-from-bracket"></i> Sign out</a>
+</aside>

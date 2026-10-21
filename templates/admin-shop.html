@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Electronics shop | MDW Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-books.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-extra.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-shop.css') }}">
+</head>
+<body data-base="{{ base }}">
+    <div class="admin-wrap">
+        {% set admin_active = 'shop' %}
+        {% include '_admin_nav.html' %}
+
+        <main class="admin-main">
+            <header class="admin-top">
+                <button type="button" class="btn btn-ghost side-toggle" id="sideToggle" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+                <h1>Electronics shop</h1>
+            </header>
+
+            <div class="card">
+                <h3>Add a product</h3>
+                <form id="productForm" class="book-form" novalidate>
+                    <label class="form-label" for="pName">Product name</label>
+                    <input type="text" id="pName" maxlength="120" placeholder="Example: Arduino Uno R3" autocomplete="off">
+
+                    <label class="form-label" for="pCategory">Category</label>
+                    <select id="pCategory">
+                        {% for name in categories %}
+                        <option value="{{ name }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <div class="two-inputs">
+                        <div>
+                            <label class="form-label" for="pPrice">Price (PHP)</label>
+                            <input type="text" id="pPrice" inputmode="decimal" placeholder="350.00">
+                        </div>
+                        <div>
+                            <label class="form-label" for="pStock">Stock</label>
+                            <input type="text" id="pStock" inputmode="numeric" placeholder="10">
+                        </div>
+                    </div>
+
+                    <label class="form-label" for="pDescription">Description (optional)</label>
+                    <textarea id="pDescription" rows="3" maxlength="1000" placeholder="Specifications, voltage, what is included"></textarea>
+
+                    <label class="form-label" for="pImage">Product picture</label>
+                    <div class="cover-picker">
+                        <img id="pPreview" class="cover-preview" alt="Preview" hidden>
+                        <input type="file" id="pImage" accept="image/png,image/jpeg,image/webp">
+                    </div>
+
+                    <div class="form-error" id="productError" role="alert"></div>
+                    <button type="submit" class="btn btn-primary" id="productBtn"><i class="fa-solid fa-plus"></i> Add product</button>
+                </form>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <div class="toolbar">
+                    <h3 style="margin: 0;">Products</h3>
+                    <span class="muted small" id="productNote"></span>
+                </div>
+                <div class="table-wrap"><table class="data-table" id="productsTable"></table></div>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <div class="toolbar">
+                    <h3 style="margin: 0;">Orders</h3>
+                    <select id="orderFilter" aria-label="Filter orders"></select>
+                </div>
+                <div class="orders-admin" id="ordersAdmin"></div>
+            </div>
+        </main>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="{{ url_for('static', filename='js/admin-shop.js') }}"></script>
+</body>
+</html>
