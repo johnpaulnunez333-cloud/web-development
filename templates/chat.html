@@ -11,34 +11,82 @@
 <body class="chat-body" data-user-id="{{ user.id }}">
     {% set active = 'chat' %}
     {% include '_nav.html' %}
-    <div class="chat-layout">
+    <div class="chat-layout" id="chatLayout">
         <aside class="chat-side" id="chatSide">
-            <div class="side-head">
-                <h3>Online now</h3>
-                <span id="onlineCount">0</span>
-            </div>
-            <div class="online-list" id="onlineUsers"></div>
-        </aside>
-        <section class="chat-main">
-            <header class="chat-head">
-                <div>
-                    <h2>Manantan Network</h2>
-                    <span class="status" id="chatStatus">Connecting...</span>
+            <div class="side-top">
+                <div class="side-tabs" role="tablist">
+                    <button type="button" class="side-tab active" id="tabChats" data-tab="chats">Chats</button>
+                    <button type="button" class="side-tab" id="tabPeople" data-tab="people">People</button>
                 </div>
-                <button type="button" class="btn btn-ghost online-toggle" id="onlineToggle">
-                    <i class="fa-solid fa-users"></i> <span id="onlineToggleCount">0</span>
-                </button>
-            </header>
-            <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
-            <button type="button" class="jump-btn" id="jumpBtn" hidden>New messages</button>
-            <div class="notice-line" id="noticeLine"></div>
-            <div class="composer">
-                <textarea id="msgInput" rows="1" maxlength="500" placeholder="Write a message" aria-label="Message"></textarea>
-                <span class="char-count" id="charCount">0/500</span>
-                <button type="button" class="btn btn-primary" id="sendBtn" aria-label="Send message"><i class="fa-solid fa-paper-plane"></i></button>
+                <button type="button" class="btn btn-primary new-group-btn" id="newGroupBtn"><i class="fa-solid fa-users-line"></i> New group</button>
+            </div>
+            <div class="side-search" id="peopleSearchWrap" hidden>
+                <input type="search" id="peopleSearch" placeholder="Search members" aria-label="Search members">
+            </div>
+            <div class="side-list" id="sideList"></div>
+        </aside>
+
+        <section class="chat-main" id="chatMain">
+            <div class="chat-empty-state" id="chatEmptyState">
+                <i class="fa-regular fa-comments"></i>
+                <h2>Pick a conversation</h2>
+                <p>Open the Manantan Network, tap a member under People to message them privately, or create a group chat.</p>
+            </div>
+
+            <div class="chat-panel" id="chatPanel" hidden>
+                <header class="chat-head">
+                    <button type="button" class="icon-btn back-btn" id="backBtn" aria-label="Back to chats"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="head-avatar" id="headAvatar"></div>
+                    <div class="head-text">
+                        <h2 id="headTitle"></h2>
+                        <span class="status" id="chatStatus">Connecting...</span>
+                    </div>
+                    <button type="button" class="icon-btn" id="infoBtn" aria-label="Group details" hidden><i class="fa-solid fa-circle-info"></i></button>
+                </header>
+                <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
+                <button type="button" class="jump-btn" id="jumpBtn" hidden>New messages</button>
+                <div class="notice-line" id="noticeLine"></div>
+                <div class="composer">
+                    <textarea id="msgInput" rows="1" maxlength="500" placeholder="Write a message" aria-label="Message"></textarea>
+                    <span class="char-count" id="charCount">0/500</span>
+                    <button type="button" class="btn btn-primary" id="sendBtn" aria-label="Send message"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
             </div>
         </section>
     </div>
+
+    <div class="modal" id="groupModal" hidden>
+        <div class="modal-card">
+            <h3 id="groupModalTitle">New group</h3>
+            <div class="modal-field" id="groupNameField">
+                <label for="groupName">Group name</label>
+                <input type="text" id="groupName" maxlength="40" placeholder="Example: Web Dev Team" autocomplete="off">
+            </div>
+            <div class="modal-field">
+                <label for="groupSearch">Add members</label>
+                <input type="search" id="groupSearch" placeholder="Search members" autocomplete="off">
+            </div>
+            <div class="pick-list" id="pickList"></div>
+            <div class="form-error" id="groupError" role="alert"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="groupCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="groupSave">Create group</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="infoModal" hidden>
+        <div class="modal-card">
+            <h3 id="infoTitle">Group details</h3>
+            <div class="pick-list" id="infoMembers"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-danger" id="leaveGroupBtn">Leave group</button>
+                <button type="button" class="btn btn-ghost" id="addMembersBtn">Add members</button>
+                <button type="button" class="btn btn-primary" id="infoClose">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
