@@ -2577,4 +2577,179 @@ def admin_products_list():
 
 @app.route(ADMIN_PATH + '/api/products', methods=['POST'])
 @admin_required
-def admin_products_a
+app.route(ADMIN_PATH + '/api/products', methods=['POST'])
+@admin_required
+def admin_products_add():
+    name = ' '.join((request.form.get('name') or '').split())
+    category = request.form.get('category') or ''
+    description = (request.form.get('description') or '').strip()[:1000]
+    price_cents = parse_price_cents(request.form.get('price'))
+    stock = to_int(request.form.get('stock'))
+    image = request.files.get('image')
+
+    if len(name) < 2 or len(name) > 120:
+        return jsonify({'success': False, 'message': 'The product name must be 2 to 120 characters.'}), 400
+    if category not in SHOP_CATEGORIES:
+        return jsonify({'success': False, 'message': 'Choose a valid category.'}), 400
+    if price_cents is None:
+        return jsonify({'success': False, 'message': 'Enter a valid price.'}), 400
+    if stock is None or stock < 0 or stock > 100000:
+        return jsonify({'success': False, 'message': 'Enter a valid stock quantity.'}), 400
+    if not image:
+        return jsonify({'success': False, 'message': 'Choose a product picture.'}), 400
+
+    raw = image.read(MAX_PRODUCT_IMAGE_BYTES + 1)
+    if len(raw) > MAX_PRODUCT_IMAGE_BYTES:
+        return jsonify({'success': False, 'message': 'The picture is too large (3 MB maximum).'}), 400
+    kind = detect_image_type(raw)
+    if not kind:
+        return jsonify({'success': False, 'message': 'The picture must be a PNG, JPEG, or WebP image.'}), 400
+
+    product = Product(
+        name=name, category=category, description=description, price_cents=price_cents, stock=stock,
+        image_type=kind, image_size=len(raw), image_data=b''
+    )
+    db.session.add(product)
+    product_id = None
+    try:
+        db.session.commit()
+        product_id = product.id
+        save_chunks('product_image', product_id, raw)
+        db.session.commit()
+    except SQLAlchemyError as error:
+        db.session.rollback()
+        print(f'[MDW] Product upload failed: {type(error).__name__}: {error}', flush=True)
+        discard_record(Product, product_id, ['product_image'])
+        return jsonify({'success': False, 'message': 'The file database could not store this picture. It may be full or offline.'}), 500
+    return jsonify({'success': True, 'product': product_dict(product)})
+
+
+@app.route(ADMIN_PATH + '/api/products/<int:product_id>', methods=['POST'])
+@admin_required
+def admin_products_update(product_id):
+    product = db.session.get(Product, product_id)
+    if not product:
+        return jsonify({'success': False, 'message': 'Product not found.'}), 404
+    data = request.get_json(silent=True) or {}
+
+    if 'name' in data:
+        name = ' '.join(str(data['name']).split())
+        if len(name) < 2 or len(name) > 120:
+            return jsonify({'success': False, 'message': 'The product name must be 2 to 120 characters.'}), 400
+        product.name = name
+    if 'category' in data:
+        if data['category'] not in SHOP_CATEGORIES:
+            return jsonify({'success': False, 'message': 'Choose a valid category.'}), 400
+        product.category = data['category']
+    if 'description' in data:
+        product.description = str(data['description']).strip()[:1000]
+    if 'price' in data:
+        cents = parse_price_cents(data['price'])
+        if cents is None:
+            return jsonify({'success': False, 'message': 'Enter a valid price.'}), 400
+        product.price_cents = cents
+    if 'stock' in data:
+        stock = to_int(data['stock'])
+        if stock is None or stock < 0 or stock > 100000:
+            return jsonify({'success': False, 'message': 'Enter a valid stock quantity.'}), 400
+        product.stock = stock
+    if 'active' in data:
+        product.active = bool(data['active'])
+    db.session.commit()
+    return jsonify({'success': True, 'product': product_dict(product)})
+
+
+@app.route(ADMIN_PATH + '/api/products/<int:product_id>', methods=['DELETE'])
+@admin_required
+def admin_products_delete(product_id):
+    product = db.session.get(Product, product_id)
+    if not product:
+        return jsonify({'success': False, 'message': 'Product not found.'}), 404
+    delete_chunks(['product_image'], product.id)
+    db.session.delete(product)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route(ADMIN_PATH + '/api/orders')
+@admin_required
+def admin_orders_list():
+    rows = (Order.query.options(joinedload(Order.items))
+            .order_by(Order.created_at.desc()).limit(200).all())
+    return jsonify({'orders': [order_dict(o, True) for o in rows], 'statuses': ORDER_STATUSES})
+
+
+@app.route(ADMIN_PATH + '/api/orders/<int:order_id>/status', methods=['POST'])
+@admin_required
+def admin_order_status(order_id):
+    order = db.session.get(Order, order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'Order not found.'}), 404
+    data = request.get_json(silent=True) or {}
+    status = data.get('status')
+    if status not in ORDER_STATUSES:
+        return jsonify({'success': False, 'message': 'Choose a valid status.'}), 400
+    if order.status == 'cancelled':
+        return jsonify({'success': False, 'message': 'A cancelled order cannot be changed.'}), 400
+    if status == 'cancelled':
+        for item in order.items:
+            if item.product_id:
+                Product.query.filter_by(id=item.product_id).update(
+                    {Product.stock: Product.stock + item.quantity}, synchronize_session=False)
+    order.status = status
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+def secure_tables():
+    if db.engine.dialect.name != 'postgresql':
+        return
+    try:
+        for table in db.metadata.tables:
+            db.session.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
+        db.session.commit()
+    except Exception as error:
+        db.session.rollback()
+        print(f'[MDW] WARNING: could not enable row level security: {error}', flush=True)
+
+def print_startup_report():
+    target = make_url(DATABASE_URI)
+    if target.host and target.host.startswith('db.') and target.host.endswith('.supabase.co'):
+        print('[MDW] WARNING: this is the Supabase direct connection, which is IPv6 only and fails on Render. Use the Session pooler connection string.', flush=True)
+    print(f"[MDW] Database: {target.drivername} | host={target.host or 'local file'} | name={target.database}", flush=True)
+    if target.get_backend_name() == 'sqlite':
+        print('[MDW] WARNING: SQLite is erased on every Render restart. Set DATABASE_URL to your Supabase database.', flush=True)
+    admin_email = os.environ.get('ADMIN_EMAIL', '').strip().lower()
+    print(f"[MDW] Admin email configured: {bool(admin_email)} | admins in database: {User.query.filter_by(is_admin=True).count()}", flush=True)
+    print(f"[MDW] Admin panel path: {ADMIN_PATH}", flush=True)
+    if FILES_DB_ENABLED:
+        files_target = make_url(FILES_CONFIG['url'])
+        print(f"[MDW] File database: {files_target.drivername} | host={files_target.host} | name={files_target.database}", flush=True)
+    else:
+        print('[MDW] File database: not set, books and pictures are stored in the main database.', flush=True)
+    print(f"[MDW] Password reset email relay configured: {bool(MAIL_RELAY_URL)}", flush=True)
+    print(f"[MDW] AI: provider={AI_PROVIDER_NAME} | model={AI_MODEL} | key set={bool(AI_API_KEY)} | key starts with={AI_API_KEY[:4]} | key length={len(AI_API_KEY)}", flush=True)
+    if not os.environ.get('SECRET_KEY'):
+        print('[MDW] WARNING: SECRET_KEY is not set. Everyone is logged out on every restart.', flush=True)
+
+
+with app.app_context():
+    db.create_all(bind_key=None)
+    if FILES_DB_ENABLED:
+        try:
+            db.create_all(bind_key='files')
+        except Exception as error:
+            print(f'[MDW] WARNING: cannot reach the file database: {type(error).__name__}: {error}', flush=True)
+    ensure_columns()
+    ensure_global_conversation()
+    secure_tables()
+    migrate_legacy_files()
+    seed_questions()
+    ensure_admin()
+    print_startup_report()
+
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+
