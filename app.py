@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 
+import certifi
 import requests
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, abort, Response
@@ -22,9 +23,10 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sqlalchemy import func, inspect, text
+from sqlalchemy.dialects.mysql import LONGBLOB
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import deferred, joinedload
+from sqlalchemy.orm import deferred, joinedload, undefer
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -66,6 +68,55 @@ def build_database_config():
 
 DATABASE_URI, ENGINE_OPTIONS = build_database_config()
 
+
+def build_files_config():
+    raw = os.environ.get('FILES_DATABASE_URL', '').strip()
+    host = os.environ.get('FILES_DB_HOST', '').strip()
+
+    if raw:
+        url = make_url(raw)
+    elif host:
+        is_postgres = os.environ.get('FILES_DB_TYPE', 'mysql').strip().lower() in ('postgres', 'postgresql', 'neon')
+        url = URL.create(
+            'postgresql+psycopg2' if is_postgres else 'mysql+pymysql',
+            username=os.environ.get('FILES_DB_USER', ''),
+            password=os.environ.get('FILES_DB_PASSWORD', ''),
+            host=host,
+            port=int(os.environ.get('FILES_DB_PORT', '5432' if is_postgres else '4000') or 0) or None,
+            database=os.environ.get('FILES_DB_NAME', 'neondb' if is_postgres else 'test')
+        )
+    else:
+        return None, None
+
+    options = {'pool_pre_ping': True, 'pool_recycle': 280, 'pool_size': 3, 'max_overflow': 2}
+    backend = url.drivername.split('+')[0]
+
+    if backend == 'mysql':
+        url = url.set(drivername='mysql+pymysql')
+        query = {k: v for k, v in dict(url.query).items() if k.lower() not in ('ssl-mode', 'ssl_mode', 'sslmode', 'ssl_ca')}
+        query['charset'] = 'utf8mb4'
+        url = url.set(query=query)
+        options['connect_args'] = {'connect_timeout': 15, 'ssl': {'ca': certifi.where()}}
+    elif backend in ('postgres', 'postgresql'):
+        backend = 'postgresql'
+        url = url.set(drivername='postgresql+psycopg2')
+        query = {k: v for k, v in dict(url.query).items() if k.lower() != 'channel_binding'}
+        query.setdefault('sslmode', 'require')
+        url = url.set(query=query)
+        options['connect_args'] = {'connect_timeout': 20}
+    else:
+        return None, None
+
+    options['url'] = url.render_as_string(hide_password=False)
+    return options, backend
+
+
+FILES_CONFIG, FILES_BACKEND = build_files_config()
+FILES_DB_ENABLED = FILES_CONFIG is not None
+FILES_BIND_KEY = 'files' if FILES_DB_ENABLED else None
+FILES_DB_LIMIT_MB = int(os.environ.get('FILES_DB_LIMIT_MB') or (500 if FILES_BACKEND == 'postgresql' else 5000))
+CHUNK_SIZE = 2 * 1024 * 1024
+
 MAX_UPLOAD_BYTES = 32 * 1024 * 1024
 
 
@@ -79,6 +130,8 @@ app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('RENDER')) or os.envir
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = ENGINE_OPTIONS
+if FILES_DB_ENABLED:
+    app.config['SQLALCHEMY_BINDS'] = {'files': FILES_CONFIG}
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_BYTES
 
@@ -283,6 +336,43 @@ def ensure_global_conversation():
     GLOBAL_CONVERSATION['id'] = conversation.id
 
 
+class FileChunk(db.Model):
+    __bind_key__ = FILES_BIND_KEY
+    __tablename__ = 'mdw_file_chunks'
+    __table_args__ = (db.UniqueConstraint('kind', 'owner_id', 'seq', name='uq_mdw_file_chunk'),)
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(20), nullable=False)
+    owner_id = db.Column(db.Integer, nullable=False)
+    seq = db.Column(db.Integer, nullable=False)
+    data = db.Column(db.LargeBinary().with_variant(LONGBLOB(), 'mysql'), nullable=False)
+
+
+def save_chunks(kind, owner_id, data):
+    FileChunk.query.filter_by(kind=kind, owner_id=owner_id).delete(synchronize_session=False)
+    for seq, start in enumerate(range(0, len(data), CHUNK_SIZE)):
+        db.session.add(FileChunk(kind=kind, owner_id=owner_id, seq=seq, data=data[start:start + CHUNK_SIZE]))
+
+
+def load_chunks(kind, owner_id):
+    rows = (FileChunk.query.filter_by(kind=kind, owner_id=owner_id)
+            .order_by(FileChunk.seq.asc()).all())
+    if not rows:
+        return None
+    return b''.join(bytes(row.data) for row in rows)
+
+
+def delete_chunks(kinds, owner_id):
+    FileChunk.query.filter(FileChunk.kind.in_(kinds), FileChunk.owner_id == owner_id).delete(synchronize_session=False)
+
+
+def file_bytes(kind, owner_id, legacy):
+    data = load_chunks(kind, owner_id)
+    if data is not None:
+        return data
+    old = bytes(legacy) if legacy else b''
+    return old or None
+
+
 class PasswordReset(db.Model):
     __tablename__ = 'mdw_password_resets'
     id = db.Column(db.Integer, primary_key=True)
@@ -441,6 +531,53 @@ def detect_image_type(raw):
 def safe_filename(title):
     cleaned = re.sub(r'[^A-Za-z0-9 _-]+', '', title).strip()
     return (cleaned or 'book')[:80] + '.pdf'
+
+
+def discard_record(model, record_id, kinds):
+    if record_id is None:
+        return
+    try:
+        delete_chunks(kinds, record_id)
+        model.query.filter_by(id=record_id).delete(synchronize_session=False)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+
+
+def migrate_legacy_files():
+    if not FILES_DB_ENABLED:
+        return
+    moved = 0
+    try:
+        book_ids = [row[0] for row in db.session.query(Book.id).filter(func.length(Book.pdf_data) > 0).all()]
+        for book_id in book_ids:
+            book = Book.query.options(undefer(Book.pdf_data), undefer(Book.cover_data)).filter_by(id=book_id).first()
+            if not book:
+                continue
+            if book.cover_data:
+                save_chunks('book_cover', book.id, bytes(book.cover_data))
+            save_chunks('book_pdf', book.id, bytes(book.pdf_data))
+            db.session.commit()
+            book.cover_data = b''
+            book.pdf_data = b''
+            db.session.commit()
+            moved += 1
+        product_ids = [row[0] for row in db.session.query(Product.id).filter(func.length(Product.image_data) > 0).all()]
+        for product_id in product_ids:
+            product = Product.query.options(undefer(Product.image_data)).filter_by(id=product_id).first()
+            if not product:
+                continue
+            save_chunks('product_image', product.id, bytes(product.image_data))
+            db.session.commit()
+            product.image_data = b''
+            db.session.commit()
+            moved += 1
+    except Exception as error:
+        db.session.rollback()
+        print(f'[MDW] WARNING: moving old files to the file database failed: {type(error).__name__}: {error}', flush=True)
+        return
+    if moved:
+        print(f'[MDW] Moved {moved} old file(s) to the file database.', flush=True)
 
 
 def book_dict(book):
@@ -1150,7 +1287,10 @@ def book_cover(book_id):
     book = db.session.get(Book, book_id)
     if not book:
         abort(404)
-    response = Response(bytes(book.cover_data), mimetype='image/' + book.cover_type)
+    data = file_bytes('book_cover', book.id, book.cover_data)
+    if data is None:
+        abort(404)
+    response = Response(data, mimetype='image/' + book.cover_type)
     response.headers['Cache-Control'] = 'private, max-age=86400'
     return response
 
@@ -1161,7 +1301,9 @@ def pdf_response(book_id, disposition):
     book = db.session.get(Book, book_id)
     if not book:
         abort(404)
-    data = bytes(book.pdf_data)
+    data = file_bytes('book_pdf', book.id, book.pdf_data)
+    if data is None:
+        abort(404)
     response = Response(data, mimetype='application/pdf')
     response.headers['Content-Disposition'] = f'{disposition}; filename="{safe_filename(book.title)}"'
     response.headers['Content-Length'] = str(len(data))
@@ -1970,18 +2112,24 @@ def admin_books_add():
         title=title,
         cover_type=kind,
         cover_size=len(cover_raw),
-        cover_data=cover_raw,
+        cover_data=b'',
         pdf_name=(pdf.filename or '')[:200],
         pdf_size=len(pdf_raw),
-        pdf_data=pdf_raw
+        pdf_data=b''
     )
     db.session.add(book)
+    book_id = None
     try:
+        db.session.commit()
+        book_id = book.id
+        save_chunks('book_cover', book_id, cover_raw)
+        save_chunks('book_pdf', book_id, pdf_raw)
         db.session.commit()
     except SQLAlchemyError as error:
         db.session.rollback()
         print(f'[MDW] Book upload failed: {type(error).__name__}: {error}', flush=True)
-        return jsonify({'success': False, 'message': 'The database could not store this file. It may be full.'}), 500
+        discard_record(Book, book_id, ['book_cover', 'book_pdf'])
+        return jsonify({'success': False, 'message': 'The file database could not store this book. It may be full or offline.'}), 500
     return jsonify({'success': True, 'book': book_dict(book)})
 
 
@@ -1991,6 +2139,7 @@ def admin_books_delete(book_id):
     book = db.session.get(Book, book_id)
     if not book:
         return jsonify({'success': False, 'message': 'Book not found.'}), 404
+    delete_chunks(['book_cover', 'book_pdf'], book.id)
     db.session.delete(book)
     db.session.commit()
     return jsonify({'success': True})
@@ -2158,6 +2307,35 @@ def check_business(url, probe):
     return make_check('business', label, 'fail', 0, f"Cannot reach the site ({probe['error']}).", probe['ms'])
 
 
+def check_files_db():
+    label = 'File storage database'
+    try:
+        books_bytes = db.session.query(func.coalesce(func.sum(Book.pdf_size + Book.cover_size), 0)).scalar() or 0
+        product_bytes = db.session.query(func.coalesce(func.sum(Product.image_size), 0)).scalar() or 0
+    except Exception as error:
+        db.session.rollback()
+        return make_check('files', label, 'warn', 60, f'Could not read file sizes ({type(error).__name__}).')
+    used = int(books_bytes) + int(product_bytes)
+    used_mb = used / 1024 / 1024
+    if not FILES_DB_ENABLED:
+        return make_check('files', label, 'info', None, f'Files are stored in the main database ({used_mb:.0f} MB). Add FILES_DATABASE_URL to use a separate one.')
+
+    started = time.time()
+    try:
+        with db.engines['files'].connect() as connection:
+            connection.execute(text('SELECT 1'))
+    except Exception as error:
+        return make_check('files', label, 'fail', 0, f'The file database is unreachable ({type(error).__name__}). Books and pictures will not load.')
+    ms = int((time.time() - started) * 1000)
+    percent = used_mb / FILES_DB_LIMIT_MB * 100
+    detail = f'{used_mb:.0f} MB of {FILES_DB_LIMIT_MB} MB used ({percent:.0f}%).'
+    if percent >= 90:
+        return make_check('files', label, 'fail', 20, detail, ms)
+    if percent >= 70 or ms >= 2500:
+        return make_check('files', label, 'warn', 60, detail, ms)
+    return make_check('files', label, 'ok', 100, detail, ms)
+
+
 def check_chat():
     try:
         conversations = Conversation.query.count()
@@ -2219,7 +2397,7 @@ def admin_health():
         ai_future = pool.submit(ai_live_probe) if run_ai_test else None
         business_futures = [pool.submit(http_probe, url, 20) for url in business_urls]
 
-        checks = [check_database(), check_storage(), check_server(), check_accounts(), check_chat(), check_quiz(), check_shop()]
+        checks = [check_database(), check_storage(), check_files_db(), check_server(), check_accounts(), check_chat(), check_quiz(), check_shop()]
 
         checks.append(check_ai(ai_future.result() if ai_future else None))
         checks.append(check_mail(mail_future.result() if mail_future else None))
@@ -2311,7 +2489,10 @@ def shop_image(product_id):
     product = db.session.get(Product, product_id)
     if not product:
         abort(404)
-    response = Response(bytes(product.image_data), mimetype='image/' + product.image_type)
+    data = file_bytes('product_image', product.id, product.image_data)
+    if data is None:
+        abort(404)
+    response = Response(data, mimetype='image/' + product.image_type)
     response.headers['Cache-Control'] = 'private, max-age=86400'
     return response
 
@@ -2396,160 +2577,4 @@ def admin_products_list():
 
 @app.route(ADMIN_PATH + '/api/products', methods=['POST'])
 @admin_required
-def admin_products_add():
-    name = ' '.join((request.form.get('name') or '').split())
-    category = request.form.get('category') or ''
-    description = (request.form.get('description') or '').strip()[:1000]
-    price_cents = parse_price_cents(request.form.get('price'))
-    stock = to_int(request.form.get('stock'))
-    image = request.files.get('image')
-
-    if len(name) < 2 or len(name) > 120:
-        return jsonify({'success': False, 'message': 'The product name must be 2 to 120 characters.'}), 400
-    if category not in SHOP_CATEGORIES:
-        return jsonify({'success': False, 'message': 'Choose a valid category.'}), 400
-    if price_cents is None:
-        return jsonify({'success': False, 'message': 'Enter a valid price.'}), 400
-    if stock is None or stock < 0 or stock > 100000:
-        return jsonify({'success': False, 'message': 'Enter a valid stock quantity.'}), 400
-    if not image:
-        return jsonify({'success': False, 'message': 'Choose a product picture.'}), 400
-
-    raw = image.read(MAX_PRODUCT_IMAGE_BYTES + 1)
-    if len(raw) > MAX_PRODUCT_IMAGE_BYTES:
-        return jsonify({'success': False, 'message': 'The picture is too large (3 MB maximum).'}), 400
-    kind = detect_image_type(raw)
-    if not kind:
-        return jsonify({'success': False, 'message': 'The picture must be a PNG, JPEG, or WebP image.'}), 400
-
-    product = Product(
-        name=name, category=category, description=description, price_cents=price_cents, stock=stock,
-        image_type=kind, image_size=len(raw), image_data=raw
-    )
-    db.session.add(product)
-    try:
-        db.session.commit()
-    except SQLAlchemyError as error:
-        db.session.rollback()
-        print(f'[MDW] Product upload failed: {type(error).__name__}: {error}', flush=True)
-        return jsonify({'success': False, 'message': 'The database could not store this product.'}), 500
-    return jsonify({'success': True, 'product': product_dict(product)})
-
-
-@app.route(ADMIN_PATH + '/api/products/<int:product_id>', methods=['POST'])
-@admin_required
-def admin_products_update(product_id):
-    product = db.session.get(Product, product_id)
-    if not product:
-        return jsonify({'success': False, 'message': 'Product not found.'}), 404
-    data = request.get_json(silent=True) or {}
-
-    if 'name' in data:
-        name = ' '.join(str(data['name']).split())
-        if len(name) < 2 or len(name) > 120:
-            return jsonify({'success': False, 'message': 'The product name must be 2 to 120 characters.'}), 400
-        product.name = name
-    if 'category' in data:
-        if data['category'] not in SHOP_CATEGORIES:
-            return jsonify({'success': False, 'message': 'Choose a valid category.'}), 400
-        product.category = data['category']
-    if 'description' in data:
-        product.description = str(data['description']).strip()[:1000]
-    if 'price' in data:
-        cents = parse_price_cents(data['price'])
-        if cents is None:
-            return jsonify({'success': False, 'message': 'Enter a valid price.'}), 400
-        product.price_cents = cents
-    if 'stock' in data:
-        stock = to_int(data['stock'])
-        if stock is None or stock < 0 or stock > 100000:
-            return jsonify({'success': False, 'message': 'Enter a valid stock quantity.'}), 400
-        product.stock = stock
-    if 'active' in data:
-        product.active = bool(data['active'])
-    db.session.commit()
-    return jsonify({'success': True, 'product': product_dict(product)})
-
-
-@app.route(ADMIN_PATH + '/api/products/<int:product_id>', methods=['DELETE'])
-@admin_required
-def admin_products_delete(product_id):
-    product = db.session.get(Product, product_id)
-    if not product:
-        return jsonify({'success': False, 'message': 'Product not found.'}), 404
-    db.session.delete(product)
-    db.session.commit()
-    return jsonify({'success': True})
-
-
-@app.route(ADMIN_PATH + '/api/orders')
-@admin_required
-def admin_orders_list():
-    rows = (Order.query.options(joinedload(Order.items))
-            .order_by(Order.created_at.desc()).limit(200).all())
-    return jsonify({'orders': [order_dict(o, True) for o in rows], 'statuses': ORDER_STATUSES})
-
-
-@app.route(ADMIN_PATH + '/api/orders/<int:order_id>/status', methods=['POST'])
-@admin_required
-def admin_order_status(order_id):
-    order = db.session.get(Order, order_id)
-    if not order:
-        return jsonify({'success': False, 'message': 'Order not found.'}), 404
-    data = request.get_json(silent=True) or {}
-    status = data.get('status')
-    if status not in ORDER_STATUSES:
-        return jsonify({'success': False, 'message': 'Choose a valid status.'}), 400
-    if order.status == 'cancelled':
-        return jsonify({'success': False, 'message': 'A cancelled order cannot be changed.'}), 400
-    if status == 'cancelled':
-        for item in order.items:
-            if item.product_id:
-                Product.query.filter_by(id=item.product_id).update(
-                    {Product.stock: Product.stock + item.quantity}, synchronize_session=False)
-    order.status = status
-    db.session.commit()
-    return jsonify({'success': True})
-
-
-def secure_tables():
-    if db.engine.dialect.name != 'postgresql':
-        return
-    try:
-        for table in db.metadata.tables:
-            db.session.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
-        db.session.commit()
-    except Exception as error:
-        db.session.rollback()
-        print(f'[MDW] WARNING: could not enable row level security: {error}', flush=True)
-
-
-def print_startup_report():
-    target = make_url(DATABASE_URI)
-    if target.host and target.host.startswith('db.') and target.host.endswith('.supabase.co'):
-        print('[MDW] WARNING: this is the Supabase direct connection, which is IPv6 only and fails on Render. Use the Session pooler connection string.', flush=True)
-    print(f"[MDW] Database: {target.drivername} | host={target.host or 'local file'} | name={target.database}", flush=True)
-    if target.get_backend_name() == 'sqlite':
-        print('[MDW] WARNING: SQLite is erased on every Render restart. Set DATABASE_URL to your Supabase database.', flush=True)
-    admin_email = os.environ.get('ADMIN_EMAIL', '').strip().lower()
-    print(f"[MDW] Admin email configured: {bool(admin_email)} | admins in database: {User.query.filter_by(is_admin=True).count()}", flush=True)
-    print(f"[MDW] Admin panel path: {ADMIN_PATH}", flush=True)
-    print(f"[MDW] Password reset email relay configured: {bool(MAIL_RELAY_URL)}", flush=True)
-    print(f"[MDW] AI: provider={AI_PROVIDER_NAME} | model={AI_MODEL} | key set={bool(AI_API_KEY)} | key starts with={AI_API_KEY[:4]} | key length={len(AI_API_KEY)}", flush=True)
-    if not os.environ.get('SECRET_KEY'):
-        print('[MDW] WARNING: SECRET_KEY is not set. Everyone is logged out on every restart.', flush=True)
-
-
-with app.app_context():
-    db.create_all()
-    ensure_columns()
-    ensure_global_conversation()
-    secure_tables()
-    seed_questions()
-    ensure_admin()
-    print_startup_report()
-
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+def admin_products_a
