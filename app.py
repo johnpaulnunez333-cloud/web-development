@@ -2574,9 +2574,6 @@ def admin_products_list():
     rows = Product.query.order_by(Product.created_at.desc()).all()
     return jsonify({'products': [product_dict(p) for p in rows], 'categories': SHOP_CATEGORIES})
 
-
-@app.route(ADMIN_PATH + '/api/products', methods=['POST'])
-@admin_required
 app.route(ADMIN_PATH + '/api/products', methods=['POST'])
 @admin_required
 def admin_products_add():
