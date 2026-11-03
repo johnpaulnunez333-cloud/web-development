@@ -1,0 +1,98 @@
+.book-form select,
+.book-form textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    outline: none;
+    font-size: 0.92rem;
+    resize: vertical;
+}
+
+.book-form select:focus,
+.book-form textarea:focus {
+    border-color: var(--blue);
+}
+
+.two-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.two-inputs input {
+    width: 100%;
+}
+
+.thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 8px;
+    display: block;
+}
+
+.inline-input {
+    width: 90px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-size: 0.84rem;
+    outline: none;
+}
+
+.inline-input:focus {
+    border-color: var(--blue);
+}
+
+.orders-admin {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.order-admin {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.86rem;
+}
+
+.order-admin-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.order-admin-top select {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 0.84rem;
+    outline: none;
+}
+
+.order-line {
+    color: var(--muted);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.order-line strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+@media (max-width: 520px) {
+    .two-inputs {
+        grid-template-columns: 1fr;
+    }
+}

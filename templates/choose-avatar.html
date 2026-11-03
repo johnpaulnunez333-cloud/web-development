@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose your avatar | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/member.css') }}">
+</head>
+<body data-next="{{ next_url }}" data-current="{{ current_key }}">
+    {% set active = 'avatar' %}
+    {% include '_nav.html' %}
+    <main class="page page-narrow">
+        <div class="page-head">
+            <h1>Choose your avatar</h1>
+            <p class="muted">This is how other members see you in the network chat.</p>
+        </div>
+        <section class="card">
+            <div class="avatar-stage">
+                <img id="avatarPreview" class="avatar avatar-xl" src="{{ avatar }}" alt="Your avatar preview">
+                <div>
+                    <h3>{{ user.full_name }}</h3>
+                    <p>Pick one of the built-in avatars or upload your own photo.</p>
+                </div>
+            </div>
+            <div class="avatar-grid" id="avatarGrid">
+                {% for item in avatars %}
+                <button type="button" class="avatar-option" data-key="{{ item.key }}" aria-label="{{ item.label }} avatar">
+                    <img src="{{ url_for('avatar_preset', key=item.key) }}" alt="">
+                    <span>{{ item.label }}</span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="form-error" id="avatarError" role="alert"></div>
+            <div class="avatar-actions">
+                <input type="file" id="avatarFile" accept="image/png,image/jpeg,image/webp">
+                <button type="button" class="btn btn-ghost" id="uploadBtn"><i class="fa-solid fa-image"></i> Upload a photo</button>
+                <button type="button" class="btn btn-primary" id="saveAvatarBtn">Save and continue</button>
+                <a class="btn btn-ghost" href="{{ next_url }}">Skip for now</a>
+            </div>
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/choose-avatar.js') }}"></script>
+</body>
+</html>

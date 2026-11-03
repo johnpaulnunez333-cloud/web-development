@@ -1,0 +1,43 @@
+<header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='images/Logo.jpg') }}" alt="MDW logo">
+        <span>Manantan Digital Works</span>
+    </a>
+    <nav class="nav-links" id="navList">
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('portfolio') }}">Portfolio</a>
+        <a href="{{ url_for('packet_tracer') }}">Packet Tracer</a>
+        <a href="{{ url_for('books') }}" class="{{ 'active' if active == 'books' }}">Manantan Books</a>
+        <a href="{{ url_for('shop') }}" class="{{ 'active' if active == 'shop' }}">Electronics Shop</a>
+        <a href="{{ url_for('chat') }}" class="{{ 'active' if active == 'chat' }}">Conversation</a>
+        <a href="{{ url_for('ai_assistant') }}" class="{{ 'active' if active == 'assistant' }}">AI Assistant</a>
+        <a href="{{ url_for('quiz') }}" class="{{ 'active' if active == 'quiz' }}">Skills Quiz</a>
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active == 'dashboard' }}">Dashboard</a>
+        <a href="{{ url_for('settings') }}" class="{{ 'active' if active == 'settings' }}">Settings</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+    {% if user %}
+    <div class="bell-wrap" id="bellWrap">
+        <button type="button" class="bell-btn" id="bellBtn" aria-label="Notifications">
+            <i class="fa-regular fa-bell"></i>
+            <span class="bell-dot" id="bellDot" hidden></span>
+        </button>
+        <div class="bell-panel" id="bellPanel" hidden>
+            <div class="bell-head">
+                <span>Notifications</span>
+                <button type="button" class="bell-mark" id="bellMarkRead">Mark all as read</button>
+            </div>
+            <div class="bell-list" id="bellList"></div>
+        </div>
+    </div>
+    <a class="nav-user" href="{{ url_for('choose_avatar') }}" title="Change your avatar">
+        <img class="avatar avatar-sm" src="/avatar/{{ user.id }}?v={{ user.avatar_version }}" alt="{{ user.full_name }}">
+    </a>
+    {% endif %}
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+    </button>
+</header>
+{% if user %}
+<script src="{{ url_for('static', filename='js/bell.js') }}"></script>
+{% endif %}

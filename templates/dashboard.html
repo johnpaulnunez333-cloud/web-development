@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/member.css') }}">
+</head>
+<body>
+    {% set active = 'dashboard' %}
+    {% include '_nav.html' %}
+    <main class="page">
+        <div class="dash-hero">
+            <img class="avatar avatar-lg" id="dashAvatar" src="/avatar/{{ user.id }}?v={{ user.avatar_version }}" alt="Your avatar">
+            <div>
+                <h1 id="dashName">{{ user.full_name }}</h1>
+                <p id="dashMeta">{{ user.email }}</p>
+            </div>
+        </div>
+
+        <div class="dash-grid">
+            <div class="stack">
+                <section class="card">
+                    <h3>Your skills</h3>
+                    <div id="skillsBody"><p class="empty-note">Loading your results...</p></div>
+                </section>
+                <section class="card">
+                    <h3>Quiz history</h3>
+                    <div id="scoreChart"></div>
+                    <div id="historyBody"><p class="empty-note">Loading...</p></div>
+                </section>
+            </div>
+            <div class="stack">
+                <section class="card">
+                    <h3>Announcements</h3>
+                    <div id="announcementsBody"><p class="empty-note">Loading...</p></div>
+                </section>
+                <section class="card">
+                    <h3>Network</h3>
+                    <div class="stat-row">
+                        <div class="stat-box"><strong id="statMembers">-</strong><span>Members</span></div>
+                        <div class="stat-box"><strong id="statOnline">-</strong><span>Online</span></div>
+                        <div class="stat-box"><strong id="statMessages">-</strong><span>Messages</span></div>
+                    </div>
+                </section>
+                <section class="card">
+                    <h3>Quick links</h3>
+                    <div class="link-list">
+                        <a href="{{ url_for('chat') }}"><i class="fa-solid fa-comments"></i> Network conversation</a>
+                        <a href="{{ url_for('ai_assistant') }}"><i class="fa-solid fa-robot"></i> AI Assistant</a>
+                        <a href="{{ url_for('quiz') }}"><i class="fa-solid fa-clipboard-question"></i> Skills quiz</a>
+                        <a href="{{ url_for('choose_avatar') }}"><i class="fa-solid fa-user-pen"></i> Change avatar</a>
+                        <a href="{{ url_for('networking_home') }}"><i class="fa-solid fa-network-wired"></i> Networking tool</a>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

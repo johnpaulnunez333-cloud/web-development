@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/member.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-extra.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+</head>
+<body>
+    {% set active = 'settings' %}
+    {% include '_nav.html' %}
+    <main class="page page-narrow">
+        <div class="page-head">
+            <h1>Settings</h1>
+            <p class="muted">Manage your account security.</p>
+        </div>
+
+        <section class="card">
+            <div class="settings-row">
+                <div>
+                    <h3>Two-factor sign-in</h3>
+                    <p class="muted small">Get a 6-digit code by email every time you sign in.</p>
+                </div>
+                <span class="status-tag" id="twofaStatus">Checking...</span>
+            </div>
+
+            <div id="twofaMailWarning" class="form-info show-info" hidden>Email is not set up yet, so two-factor sign-in cannot be turned on. Contact the administrator.</div>
+
+            <div id="twofaOffPanel" hidden>
+                <form id="twofaStartForm" class="settings-form" novalidate>
+                    <label for="twofaPassword">Confirm your password</label>
+                    <div class="field-box">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="twofaPassword" placeholder="Your password" autocomplete="current-password">
+                        <button type="button" class="reveal-btn" data-reveal="twofaPassword" aria-label="Show password"><i class="fa-regular fa-eye"></i></button>
+                    </div>
+                    <div class="form-error" id="twofaStartError" role="alert"></div>
+                    <button type="submit" class="btn btn-primary">Send confirmation code</button>
+                </form>
+
+                <form id="twofaConfirmForm" class="settings-form" hidden novalidate>
+                    <div class="form-info show-info" id="twofaConfirmInfo">A code was sent to your email.</div>
+                    <label for="twofaCode">6-digit code</label>
+                    <div class="field-box">
+                        <i class="fa-solid fa-key"></i>
+                        <input type="text" id="twofaCode" class="code-input" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code">
+                    </div>
+                    <div class="form-error" id="twofaConfirmError" role="alert"></div>
+                    <button type="submit" class="btn btn-primary">Turn on two-factor sign-in</button>
+                </form>
+            </div>
+
+            <div id="twofaOnPanel" hidden>
+                <p class="muted small">Two-factor sign-in is on. You will be asked for a code by email every time you sign in.</p>
+                <form id="twofaDisableForm" class="settings-form" novalidate>
+                    <label for="twofaDisablePassword">Confirm your password to turn it off</label>
+                    <div class="field-box">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="twofaDisablePassword" placeholder="Your password" autocomplete="current-password">
+                        <button type="button" class="reveal-btn" data-reveal="twofaDisablePassword" aria-label="Show password"><i class="fa-regular fa-eye"></i></button>
+                    </div>
+                    <div class="form-error" id="twofaDisableError" role="alert"></div>
+                    <button type="submit" class="btn btn-danger">Turn off two-factor sign-in</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card" style="margin-top: 20px;">
+            <h3>Login history</h3>
+            <p class="muted small">The last 10 times you signed in.</p>
+            <div id="loginHistoryBody"><p class="empty-note">Loading...</p></div>
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth-common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+</body>
+</html>

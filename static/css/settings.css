@@ -1,0 +1,47 @@
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.settings-row h3 {
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.status-tag {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.status-tag.on {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+}
+
+.status-tag.off {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 360px;
+    margin-top: 14px;
+}
+
+.settings-form label {
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.history-table td {
+    overflow-wrap: anywhere;
+}

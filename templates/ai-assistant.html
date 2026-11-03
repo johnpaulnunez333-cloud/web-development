@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ai-assistant.css') }}">
+</head>
+<body class="ai-body">
+    {% set active = 'assistant' %}
+    {% include '_nav.html' %}
+    <main class="ai-shell">
+        <section class="ai-panel">
+            <header class="ai-head">
+                <div class="ai-badge"><i class="fa-solid fa-robot"></i></div>
+                <div class="ai-head-text">
+                    <h1>MDW IT Assistant</h1>
+                    <p>Networking, programming, cybersecurity, and IT support</p>
+                </div>
+                <button type="button" class="btn btn-ghost" id="clearBtn"><i class="fa-solid fa-rotate-right"></i> New chat</button>
+            </header>
+
+            <div class="ai-scroll" id="aiScroll">
+                <div class="ai-empty" id="aiEmpty">
+                    <div class="ai-empty-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                    <h2>What do you want to work on?</h2>
+                    <p>Ask a question or start with one of these.</p>
+                    <div class="prompt-grid">
+                        <button type="button" class="prompt-card" data-prompt="Explain subnetting with a /26 example.">
+                            <i class="fa-solid fa-network-wired"></i>
+                            <span>Explain subnetting with a /26 example</span>
+                        </button>
+                        <button type="button" class="prompt-card" data-prompt="Write a Flask route that returns JSON and handles errors.">
+                            <i class="fa-solid fa-code"></i>
+                            <span>Write a Flask route that returns JSON</span>
+                        </button>
+                        <button type="button" class="prompt-card" data-prompt="How do I make a login form more secure?">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>How do I make a login form more secure?</span>
+                        </button>
+                        <button type="button" class="prompt-card" data-prompt="My PC turns on but the screen stays black. What should I check?">
+                            <i class="fa-solid fa-computer"></i>
+                            <span>My PC turns on but the screen stays black</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="ai-thread" id="aiThread"></div>
+            </div>
+
+            <div class="ai-composer">
+                <div class="ai-input-wrap">
+                    <textarea id="aiInput" rows="1" maxlength="1000" placeholder="Ask about networking, code, security, or IT" aria-label="Message"></textarea>
+                    <button type="button" class="ai-send" id="aiSendBtn" aria-label="Send message"><i class="fa-solid fa-arrow-up"></i></button>
+                </div>
+                <p class="ai-note">Answers can be wrong. Double-check important configuration and security steps. <span id="aiCount">0/1000</span></p>
+            </div>
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ai-assistant.js') }}"></script>
+</body>
+</html>

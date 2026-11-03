@@ -170,6 +170,11 @@ SHOP_CATEGORIES = [
     'Cables & Connectors', 'Tools & Equipment', 'Other'
 ]
 ORDER_STATUSES = ['pending', 'confirmed', 'shipped', 'completed', 'cancelled']
+QUIZ_RETAKE_HOURS = float(os.environ.get('QUIZ_RETAKE_HOURS', '12') or 12)
+TWOFA_CODE_MINUTES = 10
+TWOFA_MAX_ATTEMPTS = 5
+TWOFA_COOLDOWN_SECONDS = 60
+BOOK_CATEGORIES = list(QUIZ_PLAN.keys()) + ['General']
 GLOBAL_CONVERSATION = {'id': None}
 ai_state = {'last_ok': None, 'last_fail': None, 'last_status': None}
 mail_state = {'last_ok': None, 'last_fail': None, 'last_error': ''}
@@ -198,6 +203,8 @@ class User(db.Model):
     avatar = db.Column(db.Text, nullable=True)
     avatar_version = db.Column(db.Integer, default=0, nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    twofa_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    last_announcement_seen_id = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
 
@@ -306,7 +313,12 @@ def ensure_columns():
             'risk_score': 'INTEGER',
             'risk_level': 'VARCHAR(10)',
             'risk_notes': 'TEXT'
-        }
+        },
+        'mdw_users': {
+            'twofa_enabled': 'BOOLEAN DEFAULT FALSE',
+            'last_announcement_seen_id': 'INTEGER DEFAULT 0'
+        },
+        'mdw_books': {'category': "VARCHAR(40) DEFAULT ''"}
     }
     try:
         inspector = inspect(db.engine)
@@ -387,12 +399,54 @@ class Book(db.Model):
     __tablename__ = 'mdw_books'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
+    category = db.Column(db.String(40), nullable=False, default='')
     cover_type = db.Column(db.String(10), nullable=False)
     cover_size = db.Column(db.Integer, nullable=False)
     cover_data = deferred(db.Column(db.LargeBinary, nullable=False))
     pdf_name = db.Column(db.String(200), nullable=False, default='')
     pdf_size = db.Column(db.Integer, nullable=False)
     pdf_data = deferred(db.Column(db.LargeBinary, nullable=False))
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
+
+
+class LoginEvent(db.Model):
+    __tablename__ = 'mdw_login_events'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('mdw_users.id'), nullable=False, index=True)
+    ip_address = db.Column(db.String(64), nullable=False, default='')
+    device = db.Column(db.String(120), nullable=False, default='')
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
+
+
+class TwoFactorCode(db.Model):
+    __tablename__ = 'mdw_twofactor_codes'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('mdw_users.id'), nullable=False, index=True)
+    purpose = db.Column(db.String(10), nullable=False)
+    code_hash = db.Column(db.String(64), nullable=False)
+    attempts = db.Column(db.Integer, default=0, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+
+
+class Announcement(db.Model):
+    __tablename__ = 'mdw_announcements'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(120), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('mdw_users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
+
+
+class Notification(db.Model):
+    __tablename__ = 'mdw_notifications'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('mdw_users.id'), nullable=False, index=True)
+    kind = db.Column(db.String(20), nullable=False)
+    title = db.Column(db.String(150), nullable=False)
+    body = db.Column(db.String(300), nullable=False, default='')
+    link = db.Column(db.String(200), nullable=False, default='')
+    read = db.Column(db.Boolean, default=False, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
 
 
@@ -518,6 +572,98 @@ def hash_reset_code(user_id, code):
     return hmac.new(key, f'{user_id}:{code}'.encode('utf-8'), hashlib.sha256).hexdigest()
 
 
+def hash_twofa_code(user_id, purpose, code):
+    key = app.secret_key.encode('utf-8')
+    return hmac.new(key, f'2fa:{purpose}:{user_id}:{code}'.encode('utf-8'), hashlib.sha256).hexdigest()
+
+
+def summarize_user_agent(ua):
+    ua = ua or ''
+    if 'Android' in ua:
+        os_name = 'Android'
+    elif 'iPhone' in ua or 'iPad' in ua:
+        os_name = 'iOS'
+    elif 'Windows' in ua:
+        os_name = 'Windows'
+    elif 'Macintosh' in ua:
+        os_name = 'Mac'
+    elif 'Linux' in ua:
+        os_name = 'Linux'
+    else:
+        os_name = 'Unknown device'
+
+    if 'Edg/' in ua:
+        browser = 'Edge'
+    elif 'OPR/' in ua or 'Opera' in ua:
+        browser = 'Opera'
+    elif 'Chrome/' in ua:
+        browser = 'Chrome'
+    elif 'Firefox/' in ua:
+        browser = 'Firefox'
+    elif 'Safari/' in ua:
+        browser = 'Safari'
+    else:
+        browser = 'a browser'
+
+    return f'{browser} on {os_name}'
+
+
+def record_login_event(user):
+    try:
+        db.session.add(LoginEvent(
+            user_id=user.id,
+            ip_address=(get_remote_address() or '')[:64],
+            device=summarize_user_agent(request.headers.get('User-Agent', ''))[:120]
+        ))
+        old_ids = [row.id for row in LoginEvent.query.filter_by(user_id=user.id)
+                   .order_by(LoginEvent.created_at.desc()).offset(20).all()]
+        if old_ids:
+            LoginEvent.query.filter(LoginEvent.id.in_(old_ids)).delete(synchronize_session=False)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+
+
+def create_notification(user_id, kind, title, body, link):
+    notification = Notification(user_id=user_id, kind=kind, title=title[:150], body=body[:300], link=link[:200])
+    db.session.add(notification)
+    db.session.commit()
+    socketio.emit('notification', {
+        'id': notification.id,
+        'kind': notification.kind,
+        'title': notification.title,
+        'body': notification.body,
+        'link': notification.link,
+        'created_at': iso(notification.created_at)
+    }, to=f'u{user_id}')
+    return notification
+
+
+def weakest_category(breakdown):
+    worst = None
+    worst_ratio = 2
+    for category, item in breakdown.items():
+        total = item.get('total') or 0
+        if total <= 0:
+            continue
+        ratio = (item.get('correct') or 0) / total
+        if ratio < worst_ratio:
+            worst_ratio = ratio
+            worst = category
+    return worst
+
+
+def recommend_books(category, limit=3):
+    query = Book.query
+    if category:
+        matches = query.filter_by(category=category).order_by(Book.created_at.desc()).limit(limit).all()
+        if matches:
+            return matches
+    return query.order_by(Book.created_at.desc()).limit(limit).all()
+
+
+
+
 def detect_image_type(raw):
     if raw.startswith(b'\x89PNG\r\n\x1a\n'):
         return 'png'
@@ -584,6 +730,7 @@ def book_dict(book):
     return {
         'id': book.id,
         'title': book.title,
+        'category': book.category or 'General',
         'cover': f'/books/{book.id}/cover',
         'read': f'/books/{book.id}/read',
         'download': f'/books/{book.id}/download',
@@ -885,6 +1032,104 @@ def dashboard():
     return render_template('dashboard.html', user=current_user())
 
 
+@app.route('/settings')
+@login_required
+def settings():
+    return render_template('settings.html', user=current_user())
+
+
+@app.route('/api/security/overview')
+@api_login_required
+def api_security_overview():
+    user = current_user()
+    events = (LoginEvent.query.filter_by(user_id=user.id)
+              .order_by(LoginEvent.created_at.desc()).limit(10).all())
+    return jsonify({
+        'success': True,
+        'twofa_enabled': user.twofa_enabled,
+        'mail_configured': bool(MAIL_RELAY_URL),
+        'login_history': [
+            {'ip': e.ip_address, 'device': e.device, 'created_at': iso(e.created_at)}
+            for e in events
+        ]
+    })
+
+
+@app.route('/api/security/2fa/start', methods=['POST'])
+@api_login_required
+@limiter.limit('5 per hour')
+def api_security_2fa_start():
+    user = current_user()
+    if user.twofa_enabled:
+        return jsonify({'success': False, 'message': 'Two-factor sign-in is already on.'}), 400
+    if not MAIL_RELAY_URL:
+        return jsonify({'success': False, 'message': 'Email is not set up yet. Please contact the administrator.'}), 503
+
+    data = request.get_json(silent=True) or {}
+    password = data.get('password') or ''
+    if not check_password_hash(user.password_hash, password):
+        return jsonify({'success': False, 'message': 'Your current password is incorrect.'}), 401
+
+    latest = (TwoFactorCode.query.filter_by(user_id=user.id, purpose='enable')
+              .order_by(TwoFactorCode.created_at.desc()).first())
+    if latest and (utcnow() - latest.created_at).total_seconds() < TWOFA_COOLDOWN_SECONDS:
+        return jsonify({'success': False, 'message': 'Please wait before requesting another code.'}), 429
+
+    code = f'{secrets.randbelow(1000000):06d}'
+    TwoFactorCode.query.filter_by(user_id=user.id, purpose='enable').delete()
+    db.session.add(TwoFactorCode(
+        user_id=user.id, purpose='enable', code_hash=hash_twofa_code(user.id, 'enable', code),
+        expires_at=utcnow() + timedelta(minutes=TWOFA_CODE_MINUTES)
+    ))
+    db.session.commit()
+    send_email_async(
+        user.email, 'Confirm two-factor sign-in for Manantan Digital Works',
+        f'Hello {user.full_name},\n\nYour confirmation code is: {code}\n\n'
+        f'It expires in {TWOFA_CODE_MINUTES} minutes. Enter it on the Settings page to turn on two-factor sign-in.\n\n'
+        'Manantan Digital Works'
+    )
+    return jsonify({'success': True, 'message': 'A confirmation code was sent to your email.'})
+
+
+@app.route('/api/security/2fa/confirm', methods=['POST'])
+@api_login_required
+@limiter.limit('10 per hour')
+def api_security_2fa_confirm():
+    user = current_user()
+    code = str((request.get_json(silent=True) or {}).get('code') or '').strip()
+    failure = jsonify({'success': False, 'message': 'The code is invalid or has expired.'}), 400
+
+    if not re.fullmatch(r'\d{6}', code):
+        return jsonify({'success': False, 'message': 'Enter the 6-digit code from your email.'}), 400
+
+    record = (TwoFactorCode.query.filter_by(user_id=user.id, purpose='enable')
+              .order_by(TwoFactorCode.created_at.desc()).first())
+    if not record or record.expires_at < utcnow() or record.attempts >= TWOFA_MAX_ATTEMPTS:
+        return failure
+    if not hmac.compare_digest(record.code_hash, hash_twofa_code(user.id, 'enable', code)):
+        record.attempts += 1
+        db.session.commit()
+        return failure
+
+    user.twofa_enabled = True
+    TwoFactorCode.query.filter_by(user_id=user.id, purpose='enable').delete()
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Two-factor sign-in is now on.'})
+
+
+@app.route('/api/security/2fa/disable', methods=['POST'])
+@api_login_required
+def api_security_2fa_disable():
+    user = current_user()
+    password = (request.get_json(silent=True) or {}).get('password') or ''
+    if not check_password_hash(user.password_hash, password):
+        return jsonify({'success': False, 'message': 'Your current password is incorrect.'}), 401
+    user.twofa_enabled = False
+    TwoFactorCode.query.filter_by(user_id=user.id, purpose='enable').delete()
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Two-factor sign-in is now off.'})
+
+
 @app.route('/portfolio')
 def portfolio():
     return render_template('portfolio.html')
@@ -1046,8 +1291,90 @@ def api_login():
         return jsonify({'success': False, 'message': 'Invalid email or password.'}), 401
 
     failed_login_attempts.pop(lockout_key(email), None)
+
+    if user.twofa_enabled:
+        if not MAIL_RELAY_URL:
+            login_user(user)
+            record_login_event(user)
+            return jsonify({'success': True, 'message': 'Logged in.', 'next': url_for('dashboard')})
+        code = f'{secrets.randbelow(1000000):06d}'
+        TwoFactorCode.query.filter_by(user_id=user.id, purpose='login').delete()
+        db.session.add(TwoFactorCode(
+            user_id=user.id, purpose='login', code_hash=hash_twofa_code(user.id, 'login', code),
+            expires_at=utcnow() + timedelta(minutes=TWOFA_CODE_MINUTES)
+        ))
+        db.session.commit()
+        session.clear()
+        session['pending_2fa_user'] = user.id
+        send_email_async(
+            user.email, 'Your Manantan Digital Works sign-in code',
+            f'Hello {user.full_name},\n\nYour sign-in code is: {code}\n\n'
+            f'It expires in {TWOFA_CODE_MINUTES} minutes. If this was not you, change your password.\n\nManantan Digital Works'
+        )
+        return jsonify({'success': True, 'twofa': True, 'message': 'Enter the code sent to your email.'})
+
     login_user(user)
+    record_login_event(user)
     return jsonify({'success': True, 'message': 'Logged in.', 'next': url_for('dashboard')})
+
+
+@app.route('/api/login/2fa', methods=['POST'])
+@limiter.limit('10 per minute')
+def api_login_2fa():
+    user_id = session.get('pending_2fa_user')
+    user = db.session.get(User, user_id) if user_id else None
+    failure = jsonify({'success': False, 'message': 'The code is invalid or has expired.'}), 400
+    if not user:
+        return jsonify({'success': False, 'message': 'Sign in again to request a new code.'}), 400
+
+    code = str((request.get_json(silent=True) or {}).get('code') or '').strip()
+    if not re.fullmatch(r'\d{6}', code):
+        return jsonify({'success': False, 'message': 'Enter the 6-digit code from your email.'}), 400
+
+    record = (TwoFactorCode.query.filter_by(user_id=user.id, purpose='login')
+              .order_by(TwoFactorCode.created_at.desc()).first())
+    if not record or record.expires_at < utcnow() or record.attempts >= TWOFA_MAX_ATTEMPTS:
+        return failure
+    if not hmac.compare_digest(record.code_hash, hash_twofa_code(user.id, 'login', code)):
+        record.attempts += 1
+        db.session.commit()
+        return failure
+
+    TwoFactorCode.query.filter_by(user_id=user.id, purpose='login').delete()
+    db.session.commit()
+    session.pop('pending_2fa_user', None)
+    login_user(user)
+    record_login_event(user)
+    return jsonify({'success': True, 'message': 'Logged in.', 'next': url_for('dashboard')})
+
+
+@app.route('/api/login/2fa/resend', methods=['POST'])
+@limiter.limit('5 per hour')
+def api_login_2fa_resend():
+    user_id = session.get('pending_2fa_user')
+    user = db.session.get(User, user_id) if user_id else None
+    if not user:
+        return jsonify({'success': False, 'message': 'Sign in again to request a new code.'}), 400
+    if not MAIL_RELAY_URL:
+        return jsonify({'success': False, 'message': 'Email is not set up yet. Please contact the administrator.'}), 503
+
+    latest = (TwoFactorCode.query.filter_by(user_id=user.id, purpose='login')
+              .order_by(TwoFactorCode.created_at.desc()).first())
+    if latest and (utcnow() - latest.created_at).total_seconds() < TWOFA_COOLDOWN_SECONDS:
+        return jsonify({'success': False, 'message': 'Please wait before requesting another code.'}), 429
+
+    code = f'{secrets.randbelow(1000000):06d}'
+    TwoFactorCode.query.filter_by(user_id=user.id, purpose='login').delete()
+    db.session.add(TwoFactorCode(
+        user_id=user.id, purpose='login', code_hash=hash_twofa_code(user.id, 'login', code),
+        expires_at=utcnow() + timedelta(minutes=TWOFA_CODE_MINUTES)
+    ))
+    db.session.commit()
+    send_email_async(
+        user.email, 'Your Manantan Digital Works sign-in code',
+        f'Hello {user.full_name},\n\nYour sign-in code is: {code}\n\nIt expires in {TWOFA_CODE_MINUTES} minutes.\n\nManantan Digital Works'
+    )
+    return jsonify({'success': True, 'message': 'A new code was sent.'})
 
 
 @app.route('/api/logout', methods=['POST'])
@@ -1106,6 +1433,19 @@ def api_set_avatar():
 @app.route('/api/quiz/start', methods=['POST'])
 @api_login_required
 def api_quiz_start():
+    user = current_user()
+    last_attempt = (QuizAttempt.query.filter_by(user_id=user.id)
+                    .order_by(QuizAttempt.created_at.desc()).first())
+    if last_attempt and QUIZ_RETAKE_HOURS > 0:
+        next_allowed = last_attempt.created_at + timedelta(hours=QUIZ_RETAKE_HOURS)
+        if next_allowed > utcnow():
+            return jsonify({
+                'success': False,
+                'message': 'You can retake the quiz once the cooldown ends.',
+                'cooldown': True,
+                'next_allowed_at': iso(next_allowed)
+            }), 429
+
     picked = []
     for category, count in QUIZ_PLAN.items():
         pool = Question.query.filter_by(category=category, active=True).all()
@@ -1182,7 +1522,16 @@ def api_quiz_submit():
     db.session.add(attempt)
     db.session.commit()
     session.pop('quiz', None)
-    return jsonify({'success': True, 'result': attempt_dict(attempt), 'review': review})
+
+    weak = weakest_category(breakdown)
+    books = recommend_books(weak)
+    return jsonify({
+        'success': True,
+        'result': attempt_dict(attempt),
+        'review': review,
+        'weak_category': weak,
+        'recommended_books': [book_dict(b) for b in books]
+    })
 
 
 @app.route('/api/dashboard')
@@ -1212,6 +1561,131 @@ def api_dashboard():
             'messages': Message.query.count()
         }
     })
+
+
+def announcement_dict(announcement):
+    author = db.session.get(User, announcement.created_by) if announcement.created_by else None
+    return {
+        'id': announcement.id,
+        'title': announcement.title,
+        'body': announcement.body,
+        'author': author.full_name if author else 'MDW Admin',
+        'created_at': iso(announcement.created_at)
+    }
+
+
+@app.route('/api/announcements')
+@api_login_required
+def api_announcements():
+    rows = Announcement.query.order_by(Announcement.created_at.desc()).limit(10).all()
+    return jsonify({'announcements': [announcement_dict(a) for a in rows]})
+
+
+@app.route('/api/announcements/seen', methods=['POST'])
+@api_login_required
+def api_announcements_seen():
+    user = current_user()
+    latest = db.session.query(func.max(Announcement.id)).scalar() or 0
+    if latest > user.last_announcement_seen_id:
+        user.last_announcement_seen_id = latest
+        db.session.commit()
+    return jsonify({'success': True})
+
+
+def chat_unread_total(user):
+    total = 0
+    for membership in ConversationMember.query.filter_by(user_id=user.id).all():
+        conversation = db.session.get(Conversation, membership.conversation_id)
+        if not conversation or conversation.kind == 'global':
+            continue
+        total += Message.query.filter(
+            Message.conversation_id == conversation.id,
+            Message.id > (membership.last_read_id or 0),
+            Message.user_id != user.id
+        ).count()
+    return total
+
+
+@app.route('/api/notifications/summary')
+@api_login_required
+def api_notifications_summary():
+    user = current_user()
+    chat_unread = chat_unread_total(user)
+    announcement_unread = db.session.query(func.max(Announcement.id)).scalar() or 0
+    has_announcement = announcement_unread > (user.last_announcement_seen_id or 0)
+    unread_notifications = Notification.query.filter_by(user_id=user.id, read=False).count()
+    return jsonify({
+        'chat_unread': chat_unread,
+        'has_announcement': has_announcement,
+        'unread_notifications': unread_notifications,
+        'total': chat_unread + unread_notifications + (1 if has_announcement else 0)
+    })
+
+
+@app.route('/api/notifications')
+@api_login_required
+def api_notifications_list():
+    user = current_user()
+    items = []
+
+    for membership in ConversationMember.query.filter_by(user_id=user.id).all():
+        conversation = db.session.get(Conversation, membership.conversation_id)
+        if not conversation or conversation.kind == 'global':
+            continue
+        unread = Message.query.filter(
+            Message.conversation_id == conversation.id,
+            Message.id > (membership.last_read_id or 0),
+            Message.user_id != user.id
+        ).count()
+        if unread == 0:
+            continue
+        last = (Message.query.options(joinedload(Message.user))
+                .filter_by(conversation_id=conversation.id).order_by(Message.id.desc()).first())
+        if conversation.kind == 'group':
+            title = conversation.name
+        else:
+            other_member = ConversationMember.query.filter(
+                ConversationMember.conversation_id == conversation.id,
+                ConversationMember.user_id != user.id
+            ).first()
+            other = db.session.get(User, other_member.user_id) if other_member else None
+            title = other.full_name if other else 'Deleted member'
+        items.append({
+            'type': 'chat', 'id': conversation.id, 'title': title, 'count': unread,
+            'detail': last.text[:80] if last else '', 'link': '/chat',
+            'created_at': iso(last.created_at) if last else iso(conversation.created_at)
+        })
+
+    latest_announcement_id = db.session.query(func.max(Announcement.id)).scalar() or 0
+    if latest_announcement_id > (user.last_announcement_seen_id or 0):
+        latest = Announcement.query.order_by(Announcement.created_at.desc()).first()
+        if latest:
+            items.append({
+                'type': 'announcement', 'id': latest.id, 'title': 'New announcement: ' + latest.title,
+                'detail': latest.body[:100], 'link': '/dashboard', 'created_at': iso(latest.created_at), 'count': 1
+            })
+
+    for row in (Notification.query.filter_by(user_id=user.id, read=False)
+                .order_by(Notification.created_at.desc()).limit(20).all()):
+        items.append({
+            'type': row.kind, 'id': row.id, 'title': row.title, 'detail': row.body,
+            'link': row.link or '/dashboard', 'created_at': iso(row.created_at), 'count': 1
+        })
+
+    items.sort(key=lambda item: item['created_at'] or '', reverse=True)
+    return jsonify({'items': items})
+
+
+@app.route('/api/notifications/read', methods=['POST'])
+@api_login_required
+def api_notifications_read():
+    user = current_user()
+    Notification.query.filter_by(user_id=user.id, read=False).update({'read': True}, synchronize_session=False)
+    latest = db.session.query(func.max(Announcement.id)).scalar() or 0
+    if latest > user.last_announcement_seen_id:
+        user.last_announcement_seen_id = latest
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 @app.route('/api/assistant', methods=['POST'])
@@ -1843,7 +2317,44 @@ def admin_logout():
 @app.route(ADMIN_PATH + '/books')
 @admin_required
 def admin_books_page():
-    return render_template('admin-books.html', base=ADMIN_PATH, user=current_user())
+    return render_template('admin-books.html', base=ADMIN_PATH, user=current_user(), categories=BOOK_CATEGORIES)
+
+
+@app.route(ADMIN_PATH + '/api/announcements')
+@admin_required
+def admin_announcements_list():
+    rows = Announcement.query.order_by(Announcement.created_at.desc()).limit(50).all()
+    return jsonify({'announcements': [announcement_dict(a) for a in rows]})
+
+
+@app.route(ADMIN_PATH + '/api/announcements', methods=['POST'])
+@admin_required
+def admin_announcements_add():
+    data = request.get_json(silent=True) or {}
+    title = ' '.join((data.get('title') or '').split())
+    body = (data.get('body') or '').strip()
+
+    if len(title) < 2 or len(title) > 120:
+        return jsonify({'success': False, 'message': 'The title must be 2 to 120 characters.'}), 400
+    if len(body) < 2 or len(body) > 2000:
+        return jsonify({'success': False, 'message': 'The message must be 2 to 2000 characters.'}), 400
+
+    announcement = Announcement(title=title, body=body, created_by=current_user().id)
+    db.session.add(announcement)
+    db.session.commit()
+    socketio.emit('announcement_posted', announcement_dict(announcement))
+    return jsonify({'success': True, 'announcement': announcement_dict(announcement)})
+
+
+@app.route(ADMIN_PATH + '/api/announcements/<int:announcement_id>', methods=['DELETE'])
+@admin_required
+def admin_announcements_delete(announcement_id):
+    announcement = db.session.get(Announcement, announcement_id)
+    if not announcement:
+        return jsonify({'success': False, 'message': 'Announcement not found.'}), 404
+    db.session.delete(announcement)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 def latest_attempts_by_user():
@@ -2087,11 +2598,14 @@ def admin_books_list():
 @admin_required
 def admin_books_add():
     title = ' '.join((request.form.get('title') or '').split())
+    category = request.form.get('category') or 'General'
     cover = request.files.get('cover')
     pdf = request.files.get('pdf')
 
     if len(title) < 2 or len(title) > 150:
         return jsonify({'success': False, 'message': 'The title must be 2 to 150 characters.'}), 400
+    if category not in BOOK_CATEGORIES:
+        category = 'General'
     if not cover or not pdf:
         return jsonify({'success': False, 'message': 'Choose a cover picture and a PDF file.'}), 400
 
@@ -2110,6 +2624,7 @@ def admin_books_add():
 
     book = Book(
         title=title,
+        category=category,
         cover_type=kind,
         cover_size=len(cover_raw),
         cover_data=b'',
@@ -2696,6 +3211,11 @@ def admin_order_status(order_id):
                     {Product.stock: Product.stock + item.quantity}, synchronize_session=False)
     order.status = status
     db.session.commit()
+    if order.user_id:
+        create_notification(
+            order.user_id, 'order', f'Order #{order.id} is now {status}',
+            f'Total {order.total_cents / 100:.2f} PHP', '/shop'
+        )
     return jsonify({'success': True})
 
 
