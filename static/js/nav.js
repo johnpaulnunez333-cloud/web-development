@@ -1,9 +1,15 @@
-const navToggleButton = document.getElementById('navToggle');
-const navListElement = document.getElementById('navList');
-
-if (navToggleButton && navListElement) {
-    navToggleButton.addEventListener('click', () => {
-        const open = navListElement.classList.toggle('show-menu');
-        navToggleButton.setAttribute('aria-expanded', String(open));
+document.addEventListener('DOMContentLoaded', () => {
+  const toggle = document.getElementById('navToggle');
+  const list = document.getElementById('navList');
+  if (!toggle || !list) return;
+  toggle.addEventListener('click', () => {
+    const isOpen = list.classList.toggle('show-menu');
+    toggle.setAttribute('aria-expanded', String(isOpen));
+  });
+  list.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      list.classList.remove('show-menu');
+      toggle.setAttribute('aria-expanded', 'false');
     });
-}
+  });
+});
