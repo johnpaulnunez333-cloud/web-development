@@ -1,0 +1,46 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_download' %}
+{% set net_title = 'Downloads' %}
+{% block intro %}
+<div class="page-intro"><span class="section-tag">Download</span><h1>Labs &amp; <span>Downloads</span></h1><p>Packet Tracer labs uploaded by our team through the admin panel, plus a cheat sheet you can keep offline.</p></div>
+{% endblock %}
+{% block content %}
+<div class="stat-row">
+    <div class="stat-box"><strong id="stLabs">-</strong><span>Labs available</span></div>
+    <div class="stat-box"><strong id="stDownloads">-</strong><span>Downloads</span></div>
+    <div class="stat-box"><strong id="stPings">-</strong><span>Simulator pings</span></div>
+</div>
+<h2 class="section-sub">Packet Tracer labs (.pkt)</h2>
+<div class="lab-list" id="labs"><div class="skeleton" style="height:90px"></div></div>
+<h2 class="section-sub">Cheat sheet</h2>
+<div class="lab-list">
+    <div class="lab">
+        <div class="lab-icon"><i class="fa-solid fa-file-lines"></i></div>
+        <div class="lab-main"><h3>Cisco quick reference</h3><p>Command modes, interface setup, static routes and verification commands in one text file.</p><div class="lab-meta"><span>cisco-cheatsheet.txt</span></div></div>
+        <button class="pbtn solid" type="button" id="dlSheet">Download <i class="fa-solid fa-download"></i></button>
+    </div>
+</div>
+<p class="muted" style="max-width:900px;margin:18px auto 0;color:var(--text-muted);font-size:.84rem">Packet Tracer is a free tool from Cisco Networking Academy. You need it installed to open <code>.pkt</code> files.</p>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/labs.js') }}"></script>
+<script>
+document.getElementById('dlSheet').addEventListener('click', function () {
+    var text = [
+        'MDW CISCO QUICK REFERENCE', '=========================', '',
+        'MODES', '  enable                      user -> privileged', '  configure terminal          privileged -> global config',
+        '  interface gi0/0             global -> interface config', '  exit / end                  go back one level / to privileged', '',
+        'ROUTER INTERFACE', '  interface gigabitethernet 0/0', '   ip address 192.168.1.1 255.255.255.0', '   no shutdown', '',
+        'STATIC ROUTE', '  ip route <network> <mask> <next-hop>', '  ip route 192.168.2.0 255.255.255.0 10.0.0.2', '  (add the return route on the other router too)', '',
+        'SWITCH BASICS', '  hostname SW1', '  vlan 10', '   name SALES', '  interface fa0/1', '   switchport mode access', '   switchport access vlan 10', '',
+        'VERIFY', '  show ip interface brief', '  show ip route', '  show running-config', '  ping <ip>', '  traceroute <ip>', '',
+        'SAVE', '  copy running-config startup-config', ''
+    ].join('\r\n');
+    var blob = new Blob([text], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'cisco-cheatsheet.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+});
+</script>
+{% endblock %}

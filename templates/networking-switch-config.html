@@ -1,0 +1,107 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_switch_config' %}
+{% set net_title = 'Switch and Router Configuration' %}
+{% block intro %}
+<div class="page-intro"><span class="section-tag">Switch Config</span><h1>Cisco <span>Configuration Cheat Sheet</span></h1><p>Copy a block, paste it into Packet Tracer or a real device, and change the values to match your lab. Commands marked in the simulator can be tried right here.</p></div>
+{% endblock %}
+{% block content %}
+<div class="prose" style="max-width:900px">
+    <h2>Command modes</h2>
+    <div class="table-wrap"><table class="tbl">
+        <thead><tr><th>Prompt</th><th>Mode</th><th>How to enter</th></tr></thead>
+        <tbody>
+            <tr><td><code>Switch&gt;</code></td><td>User EXEC</td><td>Default after login</td></tr>
+            <tr><td><code>Switch#</code></td><td>Privileged EXEC</td><td><code>enable</code></td></tr>
+            <tr><td><code>Switch(config)#</code></td><td>Global configuration</td><td><code>configure terminal</code></td></tr>
+            <tr><td><code>Switch(config-if)#</code></td><td>Interface configuration</td><td><code>interface gigabitethernet 0/0</code></td></tr>
+        </tbody>
+    </table></div>
+
+    <h2>Basic switch setup</h2>
+    <div class="code"><div class="code-head"><span>Switch</span><button class="copy-btn" type="button">Copy</button></div><pre>enable
+configure terminal
+hostname SW1
+enable secret ChangeMe123
+service password-encryption
+banner motd #Authorized access only#
+interface vlan 1
+ ip address 192.168.1.2 255.255.255.0
+ no shutdown
+exit
+ip default-gateway 192.168.1.1
+line console 0
+ password cisco
+ login
+exit
+line vty 0 4
+ password cisco
+ login
+end
+copy running-config startup-config</pre></div>
+
+    <h2>VLANs and access ports</h2>
+    <div class="code"><div class="code-head"><span>Switch</span><button class="copy-btn" type="button">Copy</button></div><pre>vlan 10
+ name SALES
+vlan 20
+ name IT
+interface range fastethernet 0/1 - 8
+ switchport mode access
+ switchport access vlan 10
+interface gigabitethernet 0/1
+ switchport mode trunk
+end</pre></div>
+
+    <h2>Router interfaces</h2>
+    <div class="code"><div class="code-head"><span>Router (try it in the simulator)</span><button class="copy-btn" type="button">Copy</button></div><pre>enable
+configure terminal
+hostname R1
+interface gigabitethernet 0/0
+ description LAN
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+interface gigabitethernet 0/1
+ description Link to R2
+ ip address 10.0.0.1 255.255.255.252
+ no shutdown
+end</pre></div>
+
+    <h2>Static routes</h2>
+    <div class="code"><div class="code-head"><span>Router (try it in the simulator)</span><button class="copy-btn" type="button">Copy</button></div><pre>configure terminal
+ip route 192.168.2.0 255.255.255.0 10.0.0.2
+end
+show ip route</pre></div>
+    <p>Remember the return route: R2 also needs <code>ip route 192.168.1.0 255.255.255.0 10.0.0.1</code>, otherwise replies never come back.</p>
+
+    <h2>Verification commands</h2>
+    <div class="table-wrap"><table class="tbl">
+        <thead><tr><th>Command</th><th>Shows</th></tr></thead>
+        <tbody>
+            <tr><td><code>show ip interface brief</code></td><td>Interface addresses and up/down state</td></tr>
+            <tr><td><code>show ip route</code></td><td>The routing table</td></tr>
+            <tr><td><code>show running-config</code></td><td>The active configuration</td></tr>
+            <tr><td><code>show interfaces status</code></td><td>Switch port state</td></tr>
+            <tr><td><code>show vlan brief</code></td><td>VLANs and their ports</td></tr>
+            <tr><td><code>ping &lt;ip&gt;</code></td><td>Reachability to a host</td></tr>
+            <tr><td><code>traceroute &lt;ip&gt;</code></td><td>The routers on the path</td></tr>
+        </tbody>
+    </table></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var text = btn.closest('.code').querySelector('pre').textContent;
+        function done() { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1400); }
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback);
+        else fallback();
+        function fallback() {
+            var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Press Ctrl+C'; }
+            ta.remove();
+        }
+    });
+});
+</script>
+{% endblock %}

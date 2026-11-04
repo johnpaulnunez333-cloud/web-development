@@ -1,0 +1,29 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_about' %}
+{% set net_title = 'About the Networking Tool' %}
+{% block intro %}
+<div class="page-intro"><span class="section-tag">About</span><h1>About the <span>Networking Tool</span></h1><p>Built by the Hardware and Networking members of Manantan Digital Works for students and technicians.</p></div>
+{% endblock %}
+{% block content %}
+<div class="prose">
+    <h2>Why we built it</h2>
+    <p>Many beginners cannot practice networking because they do not have routers, switches or a Cisco Packet Tracer licence on hand. This tool puts the basics in one place: short study pages, a configuration cheat sheet, downloadable Packet Tracer labs, and a simulator that runs on any phone or computer.</p>
+    <h2>What you can do here</h2>
+    <ul>
+        <li>Read how topologies, devices and IP addressing work.</li>
+        <li>Use the subnet calculator to check your network, broadcast and host range.</li>
+        <li>Copy ready-made Cisco configuration blocks for switches and routers.</li>
+        <li>Build a topology in the simulator, set IP addresses, add static routes and test with <code>ping</code> and <code>tracert</code>.</li>
+        <li>Download <code>.pkt</code> labs uploaded by our team and open them in Cisco Packet Tracer.</li>
+    </ul>
+    <h2>What the simulator covers</h2>
+    <p>PCs, routers and switches; cables; IPv4 addressing; connected and static routes; shut down ports; TTL; ping and trace route; and an IOS-style command line with modes (<code>enable</code>, <code>configure terminal</code>, <code>interface</code>). It is a learning aid, so VLANs, DHCP, NAT and dynamic routing protocols are not included.</p>
+    <h2>The team</h2>
+    <div class="team-mini">
+        <div><strong>Mark EJ Delos Angeles</strong><span>Hardware and Networking</span></div>
+        <div><strong>Louie Nhelson Puno</strong><span>Networking Administration</span></div>
+        <div><strong>Kyle Kristan M. Manantan</strong><span>Web Development</span></div>
+        <div><strong>James Pascual</strong><span>IT Support</span></div>
+    </div>
+</div>
+{% endblock %}

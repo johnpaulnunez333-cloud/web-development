@@ -1,0 +1,32 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_devices' %}
+{% set net_title = 'Network Devices' %}
+{% block intro %}
+<div class="page-intro"><span class="section-tag">Devices</span><h1>Network <span>Devices</span></h1><p>What each device does and which OSI layer it works at.</p></div>
+{% endblock %}
+{% block content %}
+<div class="prose" style="max-width:1000px">
+    <div class="table-wrap"><table class="tbl">
+        <thead><tr><th>Device</th><th>Layer</th><th>What it does</th><th>Example use</th></tr></thead>
+        <tbody>
+            <tr><td>Router</td><td>3 (Network)</td><td>Forwards packets between different networks using IP addresses and a routing table.</td><td>Connects the office LAN to the internet.</td></tr>
+            <tr><td>Switch</td><td>2 (Data link)</td><td>Forwards frames inside one network using MAC addresses. Each port is its own collision domain.</td><td>Connects PCs, printers and access points.</td></tr>
+            <tr><td>Layer 3 switch</td><td>2 and 3</td><td>A switch that can also route between VLANs.</td><td>Core of a campus network.</td></tr>
+            <tr><td>Hub</td><td>1 (Physical)</td><td>Repeats every signal to every port. Obsolete; replaced by switches.</td><td>Only in old networks.</td></tr>
+            <tr><td>Access point</td><td>2 (Data link)</td><td>Connects wireless devices to the wired network.</td><td>Wi-Fi coverage in a room.</td></tr>
+            <tr><td>Firewall</td><td>3 to 7</td><td>Allows or blocks traffic based on rules.</td><td>Protects the LAN from the internet.</td></tr>
+            <tr><td>Modem</td><td>1 (Physical)</td><td>Converts between the ISP line signal and Ethernet.</td><td>Fibre or cable internet.</td></tr>
+            <tr><td>Server</td><td>7 (Application)</td><td>Provides a service such as web, file, DNS or DHCP.</td><td>Hosting a website.</td></tr>
+            <tr><td>PC / end device</td><td>1 to 7</td><td>The source or destination of data. Needs an IP address, mask and default gateway.</td><td>Your laptop.</td></tr>
+        </tbody>
+    </table></div>
+    <h2>Cables</h2>
+    <ul>
+        <li><strong>Straight-through</strong> UTP: PC to switch, switch to router (different device types).</li>
+        <li><strong>Crossover</strong> UTP: switch to switch, PC to PC, router to router (same device types). Modern ports use Auto-MDIX and often do not need it.</li>
+        <li><strong>Fibre optic</strong>: long distance and high speed between buildings or floors.</li>
+        <li><strong>Console cable</strong>: connects your computer to a router or switch for first-time setup.</li>
+    </ul>
+    <p>In the simulator, any cable type works. Pay attention to which ports are shut down, because routers start with every interface administratively down.</p>
+</div>
+{% endblock %}

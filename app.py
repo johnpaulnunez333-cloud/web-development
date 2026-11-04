@@ -1,5 +1,6 @@
 import os
 import re
+import gzip
 import json
 import statistics
 import hmac
@@ -515,7 +516,9 @@ def api_login_required(fn):
 
 @app.before_request
 def limit_request_size():
-    is_upload = request.method == 'POST' and request.path in (ADMIN_PATH + '/api/books', ADMIN_PATH + '/api/products')
+    is_upload = request.method == 'POST' and (
+        request.path in (ADMIN_PATH + '/api/books', ADMIN_PATH + '/api/products', ADMIN_PATH + '/api/pt/labs', ADMIN_PATH + '/api/portfolio')
+        or request.path.startswith(ADMIN_PATH + '/api/portfolio/'))
     limit = MAX_UPLOAD_BYTES if is_upload else DEFAULT_REQUEST_LIMIT
     if request.content_length and request.content_length > limit:
         return jsonify({'success': False, 'message': 'The request is too large.'}), 413
@@ -899,6 +902,51 @@ def online_payload():
     ]
 
 
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(days=30)
+_static_versions = {}
+
+
+@app.url_defaults
+def add_static_version(endpoint, values):
+    """Adds ?v=<file modified time> so static files can be cached for a long time and still refresh after an update."""
+    if endpoint != 'static' or 'filename' not in values or 'v' in values:
+        return
+    filename = values['filename']
+    version = _static_versions.get(filename)
+    if version is None:
+        try:
+            version = int(os.path.getmtime(os.path.join(app.static_folder, filename)))
+        except OSError:
+            version = 0
+        _static_versions[filename] = version
+    values['v'] = version
+
+
+COMPRESSIBLE = ('text/html', 'text/css', 'application/javascript', 'text/javascript', 'application/json', 'image/svg+xml', 'text/plain')
+
+
+@app.after_request
+def compress_response(response):
+    try:
+        if (response.status_code != 200 or response.headers.get('Content-Encoding')
+                or 'gzip' not in request.headers.get('Accept-Encoding', '')
+                or request.path.startswith('/socket.io')
+                or response.mimetype not in COMPRESSIBLE):
+            return response
+        response.direct_passthrough = False
+        data = response.get_data()
+        if len(data) < 700:
+            return response
+        packed = gzip.compress(data, compresslevel=5)
+        response.set_data(packed)
+        response.headers['Content-Encoding'] = 'gzip'
+        response.headers['Content-Length'] = str(len(packed))
+        response.headers.add('Vary', 'Accept-Encoding')
+    except Exception:
+        pass
+    return response
+
+
 @app.after_request
 def set_secure_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -982,6 +1030,20 @@ AI_SYSTEM_PROMPT = (
 )
 
 
+TEAM = [
+    {'name': 'Kyle Kristan M. Manantan', 'short': 'Kyle', 'role': 'Web Development', 'photo': 'member1.jpeg'},
+    {'name': 'James Pascual', 'short': 'James', 'role': 'IT Support', 'photo': 'Member5.jpeg'},
+    {'name': 'Mark EJ Delos Angeles', 'short': 'Mark', 'role': 'Hardware and Networking', 'photo': 'Member2.jpeg'},
+    {'name': 'Jessie Kris Dagdag', 'short': 'Jessie', 'role': 'Hardware', 'photo': 'Member3.jpeg'},
+    {'name': 'John Paul Nunez', 'short': 'John', 'role': 'Front-End', 'photo': 'Member4.jpeg'},
+    {'name': 'Justin P. Imbag', 'short': 'Justin', 'role': 'App Developer', 'photo': ''},
+    {'name': 'Louie Nhelson Puno', 'short': 'Louie', 'role': 'Basic Programming C# and Networking Administration', 'photo': 'Member7.jpeg'},
+    {'name': 'John Kirby Aguilar', 'short': 'Kirby', 'role': 'Currently Learning Back End and Ethical Hacking', 'photo': ''},
+]
+for _member in TEAM:
+    _member['initials'] = ''.join(w[0] for w in _member['name'].split()[:2]).upper()
+
+
 @app.route('/')
 def root():
     if current_user():
@@ -992,7 +1054,7 @@ def root():
 @app.route('/home')
 @login_required
 def index():
-    return render_template('index.html')
+    return render_template('index.html', team=TEAM)
 
 
 @app.route('/login')
@@ -1128,16 +1190,6 @@ def api_security_2fa_disable():
     TwoFactorCode.query.filter_by(user_id=user.id, purpose='enable').delete()
     db.session.commit()
     return jsonify({'success': True, 'message': 'Two-factor sign-in is now off.'})
-
-
-@app.route('/portfolio')
-def portfolio():
-    return render_template('portfolio.html')
-
-
-@app.route('/packet-tracer')
-def packet_tracer():
-    return render_template('packet-tracer.html')
 
 
 @app.route('/networking')
@@ -3219,12 +3271,450 @@ def admin_order_status(order_id):
     return jsonify({'success': True})
 
 
+# ---------------------------------------------------------------------------
+# Portfolio + Packet Tracer (public pages, managed from the admin panel)
+# ---------------------------------------------------------------------------
+
+PORTFOLIO_CATEGORIES = ['Web Development', 'Front-End', 'Networking', 'Hardware', 'IT Support', 'App Development', 'Other']
+PT_LEVELS = ['Beginner', 'Intermediate', 'Advanced']
+PT_EXTENSIONS = ('.pkt', '.pka', '.pkz')
+MAX_PT_BYTES = 25 * 1024 * 1024
+MAX_PORTFOLIO_IMAGE_BYTES = 3 * 1024 * 1024
+PT_EVENT_KINDS = ('ping', 'sim_open')
+
+
+class PortfolioProject(db.Model):
+    __tablename__ = 'mdw_portfolio'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(40), nullable=False, default='Other', index=True)
+    description = db.Column(db.Text, nullable=False, default='')
+    tech = db.Column(db.String(200), nullable=False, default='')
+    link = db.Column(db.String(300), nullable=False, default='')
+    image_type = db.Column(db.String(10), nullable=False, default='')
+    image_size = db.Column(db.Integer, nullable=False, default=0)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
+
+
+class PTLab(db.Model):
+    __tablename__ = 'mdw_pt_labs'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(120), nullable=False)
+    level = db.Column(db.String(14), nullable=False, default='Beginner')
+    description = db.Column(db.Text, nullable=False, default='')
+    file_name = db.Column(db.String(160), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False, default=0)
+    downloads = db.Column(db.Integer, nullable=False, default=0)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
+
+
+class PTEvent(db.Model):
+    __tablename__ = 'mdw_pt_events'
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(12), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
+
+
+def portfolio_dict(project):
+    return {
+        'id': project.id,
+        'title': project.title,
+        'category': project.category,
+        'description': project.description,
+        'tech': [t.strip() for t in project.tech.split(',') if t.strip()],
+        'tech_raw': project.tech,
+        'link': project.link,
+        'image': f'/portfolio/image/{project.id}?s={project.image_size}' if project.image_type else '',
+        'active': project.active,
+        'sort_order': project.sort_order,
+        'created_at': iso(project.created_at)
+    }
+
+
+def lab_dict(lab):
+    return {
+        'id': lab.id,
+        'title': lab.title,
+        'level': lab.level,
+        'description': lab.description,
+        'file_name': lab.file_name,
+        'size': lab.file_size,
+        'downloads': lab.downloads,
+        'active': lab.active,
+        'download': f'/packet-tracer/labs/{lab.id}/download',
+        'created_at': iso(lab.created_at)
+    }
+
+
+def clean_link(value):
+    value = (value or '').strip()[:300]
+    if not value:
+        return ''
+    parsed = urlparse(value)
+    if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+        return None
+    return value
+
+
+def safe_upload_name(name):
+    name = os.path.basename((name or '').replace('\\', '/'))
+    name = re.sub(r'[^A-Za-z0-9 ._()-]+', '', name).strip()
+    return name[:150]
+
+
+def seed_portfolio():
+    if PortfolioProject.query.count() > 0:
+        return
+    samples = [
+        ('Manantan Books Library', 'Web Development',
+         'An online library where members read or download IT and networking books, managed by admins from the control panel.',
+         'Flask, PostgreSQL, JavaScript', '/books'),
+        ('Electronics Shop', 'Web Development',
+         'A shop for circuits, modules and microcontrollers with stock tracking, cart, orders and order notifications.',
+         'Flask, SQLAlchemy, JavaScript', '/shop'),
+        ('Skills Quiz and Dashboard', 'Web Development',
+         'Timed IT skills quiz with anti-cheat checks, per-category results, and a personal progress dashboard.',
+         'Flask, Chart UI, SQLAlchemy', '/quiz'),
+        ('MDW Network Chat', 'Web Development',
+         'Real-time global chat, direct messages and group conversations with typing indicators and unread counters.',
+         'Flask-SocketIO, JavaScript', '/chat'),
+        ('Packet Tracer Simulator', 'Networking',
+         'A browser-based network simulator: build topologies, configure routers with a Cisco-style CLI, and test ping and static routing.',
+         'JavaScript, SVG', '/networking/simulation'),
+    ]
+    for order, (title, category, description, tech, link) in enumerate(samples):
+        db.session.add(PortfolioProject(title=title, category=category, description=description,
+                                        tech=tech, link=link, sort_order=order))
+    db.session.commit()
+
+
+@app.route('/portfolio')
+def portfolio():
+    return render_template('portfolio.html', user=current_user(), categories=PORTFOLIO_CATEGORIES)
+
+
+@app.route('/api/portfolio')
+def api_portfolio():
+    rows = (PortfolioProject.query.filter_by(active=True)
+            .order_by(PortfolioProject.sort_order.asc(), PortfolioProject.created_at.desc()).all())
+    response = jsonify({'projects': [portfolio_dict(p) for p in rows]})
+    response.headers['Cache-Control'] = 'public, max-age=30'
+    return response
+
+
+@app.route('/portfolio/image/<int:project_id>')
+def portfolio_image(project_id):
+    project = db.session.get(PortfolioProject, project_id)
+    if not project or not project.image_type:
+        abort(404)
+    data = load_chunks('portfolio_image', project.id)
+    if data is None:
+        abort(404)
+    response = Response(data, mimetype='image/' + project.image_type)
+    response.headers['Cache-Control'] = 'public, max-age=604800, immutable'
+    return response
+
+
+@app.route('/packet-tracer')
+def packet_tracer():
+    return render_template('packet-tracer.html', user=current_user(), levels=PT_LEVELS)
+
+
+@app.route('/api/pt/labs')
+def api_pt_labs():
+    rows = PTLab.query.filter_by(active=True).order_by(PTLab.created_at.desc()).all()
+    stats = pt_public_stats()
+    return jsonify({'labs': [lab_dict(lab) for lab in rows], 'stats': stats})
+
+
+def pt_public_stats():
+    labs = db.session.query(func.count(PTLab.id), func.coalesce(func.sum(PTLab.downloads), 0)).filter(PTLab.active.is_(True)).first()
+    pings = PTEvent.query.filter_by(kind='ping').count()
+    return {'labs': int(labs[0] or 0), 'downloads': int(labs[1] or 0), 'pings': pings}
+
+
+@app.route('/api/pt/event', methods=['POST'])
+@limiter.limit('30 per minute')
+def api_pt_event():
+    data = request.get_json(silent=True) or {}
+    kind = data.get('kind')
+    if kind not in PT_EVENT_KINDS:
+        return jsonify({'success': False}), 400
+    db.session.add(PTEvent(kind=kind))
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/packet-tracer/labs/<int:lab_id>/download')
+def pt_lab_download(lab_id):
+    lab = db.session.get(PTLab, lab_id)
+    if not lab or not lab.active:
+        abort(404)
+    data = load_chunks('pt_lab', lab.id)
+    if data is None:
+        abort(404)
+    PTLab.query.filter_by(id=lab.id).update({PTLab.downloads: PTLab.downloads + 1}, synchronize_session=False)
+    db.session.add(PTEvent(kind='download'))
+    db.session.commit()
+    response = Response(data, mimetype='application/octet-stream')
+    response.headers['Content-Disposition'] = f'attachment; filename="{lab.file_name}"'
+    response.headers['Content-Length'] = str(len(data))
+    return response
+
+
+@app.route(ADMIN_PATH + '/portfolio')
+@admin_required
+def admin_portfolio_page():
+    return render_template('admin-portfolio.html', base=ADMIN_PATH, user=current_user(), categories=PORTFOLIO_CATEGORIES)
+
+
+@app.route(ADMIN_PATH + '/api/portfolio')
+@admin_required
+def admin_portfolio_list():
+    rows = PortfolioProject.query.order_by(PortfolioProject.sort_order.asc(), PortfolioProject.created_at.desc()).all()
+    return jsonify({'projects': [portfolio_dict(p) for p in rows]})
+
+
+def read_portfolio_form(existing=None):
+    title = ' '.join((request.form.get('title') or '').split())
+    category = request.form.get('category') or ''
+    description = (request.form.get('description') or '').strip()[:1200]
+    tech = ' '.join((request.form.get('tech') or '').split())[:200]
+    link = clean_link(request.form.get('link'))
+    order = to_int(request.form.get('sort_order')) or 0
+    if len(title) < 2 or len(title) > 120:
+        return None, 'The title must be 2 to 120 characters.'
+    if category not in PORTFOLIO_CATEGORIES:
+        return None, 'Choose a valid category.'
+    if link is None:
+        return None, 'The link must start with http:// or https://.'
+    return {'title': title, 'category': category, 'description': description, 'tech': tech,
+            'link': link, 'sort_order': max(-9999, min(9999, order))}, None
+
+
+def read_portfolio_image():
+    image = request.files.get('image')
+    if not image or not image.filename:
+        return None, None, None
+    raw = image.read(MAX_PORTFOLIO_IMAGE_BYTES + 1)
+    if len(raw) > MAX_PORTFOLIO_IMAGE_BYTES:
+        return None, None, 'The picture is too large (3 MB maximum).'
+    kind = detect_image_type(raw)
+    if not kind:
+        return None, None, 'The picture must be a PNG, JPEG, or WebP image.'
+    return raw, kind, None
+
+
+@app.route(ADMIN_PATH + '/api/portfolio', methods=['POST'])
+@admin_required
+def admin_portfolio_add():
+    fields, error = read_portfolio_form()
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    raw, kind, error = read_portfolio_image()
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    project = PortfolioProject(**fields, image_type=kind or '', image_size=len(raw) if raw else 0)
+    db.session.add(project)
+    project_id = None
+    try:
+        db.session.commit()
+        project_id = project.id
+        if raw:
+            save_chunks('portfolio_image', project_id, raw)
+            db.session.commit()
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        print(f'[MDW] Portfolio save failed: {type(exc).__name__}: {exc}', flush=True)
+        discard_record(PortfolioProject, project_id, ['portfolio_image'])
+        return jsonify({'success': False, 'message': 'Could not save the project. The database may be full or offline.'}), 500
+    return jsonify({'success': True, 'project': portfolio_dict(project)})
+
+
+@app.route(ADMIN_PATH + '/api/portfolio/<int:project_id>', methods=['POST'])
+@admin_required
+def admin_portfolio_update(project_id):
+    project = db.session.get(PortfolioProject, project_id)
+    if not project:
+        return jsonify({'success': False, 'message': 'Project not found.'}), 404
+    if request.form.get('toggle') == '1':
+        project.active = not project.active
+        db.session.commit()
+        return jsonify({'success': True, 'project': portfolio_dict(project)})
+    fields, error = read_portfolio_form()
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    raw, kind, error = read_portfolio_image()
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    for key, value in fields.items():
+        setattr(project, key, value)
+    try:
+        if raw:
+            project.image_type = kind
+            project.image_size = len(raw)
+            save_chunks('portfolio_image', project.id, raw)
+        elif request.form.get('remove_image') == '1':
+            project.image_type = ''
+            project.image_size = 0
+            delete_chunks(['portfolio_image'], project.id)
+        db.session.commit()
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        print(f'[MDW] Portfolio update failed: {type(exc).__name__}: {exc}', flush=True)
+        return jsonify({'success': False, 'message': 'Could not update the project.'}), 500
+    return jsonify({'success': True, 'project': portfolio_dict(project)})
+
+
+@app.route(ADMIN_PATH + '/api/portfolio/<int:project_id>', methods=['DELETE'])
+@admin_required
+def admin_portfolio_delete(project_id):
+    if not db.session.get(PortfolioProject, project_id):
+        return jsonify({'success': False, 'message': 'Project not found.'}), 404
+    discard_record(PortfolioProject, project_id, ['portfolio_image'])
+    return jsonify({'success': True})
+
+
+@app.route(ADMIN_PATH + '/packet-tracer')
+@admin_required
+def admin_pt_page():
+    return render_template('admin-pt.html', base=ADMIN_PATH, user=current_user(), levels=PT_LEVELS)
+
+
+@app.route(ADMIN_PATH + '/api/pt/labs')
+@admin_required
+def admin_pt_list():
+    rows = PTLab.query.order_by(PTLab.created_at.desc()).all()
+    return jsonify({'labs': [lab_dict(lab) for lab in rows]})
+
+
+@app.route(ADMIN_PATH + '/api/pt/stats')
+@admin_required
+def admin_pt_stats():
+    now = utcnow()
+    since = now - timedelta(days=13)
+    rows = (db.session.query(func.date(PTEvent.created_at), PTEvent.kind, func.count(PTEvent.id))
+            .filter(PTEvent.created_at >= since.replace(hour=0, minute=0, second=0, microsecond=0))
+            .group_by(func.date(PTEvent.created_at), PTEvent.kind).all())
+    per_day = {}
+    for day, kind, count in rows:
+        per_day.setdefault(str(day), {})[kind] = count
+    days = []
+    for offset in range(13, -1, -1):
+        key = (now - timedelta(days=offset)).strftime('%Y-%m-%d')
+        entry = per_day.get(key, {})
+        days.append({'date': key, 'pings': entry.get('ping', 0), 'downloads': entry.get('download', 0)})
+    totals = db.session.query(func.count(PTLab.id), func.coalesce(func.sum(PTLab.downloads), 0),
+                              func.coalesce(func.sum(PTLab.file_size), 0)).first()
+    top = PTLab.query.order_by(PTLab.downloads.desc()).first()
+    return jsonify({
+        'labs': int(totals[0] or 0),
+        'downloads': int(totals[1] or 0),
+        'storage_bytes': int(totals[2] or 0),
+        'pings': PTEvent.query.filter_by(kind='ping').count(),
+        'sim_opens': PTEvent.query.filter_by(kind='sim_open').count(),
+        'top_lab': top.title if top and top.downloads else None,
+        'days': days
+    })
+
+
+@app.route(ADMIN_PATH + '/api/pt/labs', methods=['POST'])
+@admin_required
+def admin_pt_add():
+    title = ' '.join((request.form.get('title') or '').split())
+    level = request.form.get('level') or ''
+    description = (request.form.get('description') or '').strip()[:1000]
+    upload = request.files.get('file')
+    if len(title) < 2 or len(title) > 120:
+        return jsonify({'success': False, 'message': 'The lab title must be 2 to 120 characters.'}), 400
+    if level not in PT_LEVELS:
+        return jsonify({'success': False, 'message': 'Choose a valid level.'}), 400
+    if not upload or not upload.filename:
+        return jsonify({'success': False, 'message': 'Choose a Packet Tracer file (.pkt, .pka or .pkz).'}), 400
+    name = safe_upload_name(upload.filename)
+    if not name.lower().endswith(PT_EXTENSIONS):
+        return jsonify({'success': False, 'message': 'Only .pkt, .pka and .pkz files are allowed.'}), 400
+    raw = upload.read(MAX_PT_BYTES + 1)
+    if len(raw) > MAX_PT_BYTES:
+        return jsonify({'success': False, 'message': 'The file is too large (25 MB maximum).'}), 400
+    if not raw:
+        return jsonify({'success': False, 'message': 'The file is empty.'}), 400
+    lab = PTLab(title=title, level=level, description=description, file_name=name, file_size=len(raw))
+    db.session.add(lab)
+    lab_id = None
+    try:
+        db.session.commit()
+        lab_id = lab.id
+        save_chunks('pt_lab', lab_id, raw)
+        db.session.commit()
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        print(f'[MDW] Lab upload failed: {type(exc).__name__}: {exc}', flush=True)
+        discard_record(PTLab, lab_id, ['pt_lab'])
+        return jsonify({'success': False, 'message': 'The database could not store this file. It may be full or offline.'}), 500
+    return jsonify({'success': True, 'lab': lab_dict(lab)})
+
+
+@app.route(ADMIN_PATH + '/api/pt/labs/<int:lab_id>/toggle', methods=['POST'])
+@admin_required
+def admin_pt_toggle(lab_id):
+    lab = db.session.get(PTLab, lab_id)
+    if not lab:
+        return jsonify({'success': False, 'message': 'Lab not found.'}), 404
+    lab.active = not lab.active
+    db.session.commit()
+    return jsonify({'success': True, 'lab': lab_dict(lab)})
+
+
+@app.route(ADMIN_PATH + '/api/pt/labs/<int:lab_id>', methods=['DELETE'])
+@admin_required
+def admin_pt_delete(lab_id):
+    if not db.session.get(PTLab, lab_id):
+        return jsonify({'success': False, 'message': 'Lab not found.'}), 404
+    discard_record(PTLab, lab_id, ['pt_lab'])
+    return jsonify({'success': True})
+
+
+# ---------------------------------------------------------------------------
+# Networking tool pages (static content + the browser simulator)
+# ---------------------------------------------------------------------------
+
+NET_PAGES = [
+    ('networking_home', 'Home', 'fa-house'),
+    ('networking_about', 'About', 'fa-circle-info'),
+    ('networking_topology', 'Topology', 'fa-diagram-project'),
+    ('networking_devices', 'Devices', 'fa-server'),
+    ('networking_ip_addressing', 'IP Addressing', 'fa-hashtag'),
+    ('networking_switch_config', 'Switch Config', 'fa-terminal'),
+    ('networking_simulation', 'Simulation', 'fa-play'),
+    ('networking_gallery', 'Gallery', 'fa-images'),
+    ('networking_download', 'Download', 'fa-download'),
+    ('networking_contact', 'Contact', 'fa-envelope'),
+]
+
+
+@app.context_processor
+def inject_networking_nav():
+    return {'net_pages': NET_PAGES, 'now_year': datetime.now().year}
+
+
 def secure_tables():
     if db.engine.dialect.name != 'postgresql':
         return
     try:
-        for table in db.metadata.tables:
-            db.session.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
+        # One query finds the tables that still need row level security, so a normal
+        # restart does no ALTER TABLE work at all.
+        pending = db.session.execute(text(
+            "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = current_schema() AND c.relkind = 'r' AND NOT c.relrowsecurity"
+        )).scalars().all()
+        mine = set(db.metadata.tables)
+        for table in pending:
+            if table in mine:
+                db.session.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
         db.session.commit()
     except Exception as error:
         db.session.rollback()
@@ -3252,7 +3742,21 @@ def print_startup_report():
         print('[MDW] WARNING: SECRET_KEY is not set. Everyone is logged out on every restart.', flush=True)
 
 
+def run_background_maintenance():
+    """Slow, non-essential housekeeping runs after the server is already answering requests."""
+    with app.app_context():
+        try:
+            secure_tables()
+            migrate_legacy_files()
+        except Exception as error:
+            db.session.rollback()
+            print(f'[MDW] WARNING: background maintenance failed: {type(error).__name__}: {error}', flush=True)
+        finally:
+            db.session.remove()
+
+
 with app.app_context():
+    started = time.time()
     db.create_all(bind_key=None)
     if FILES_DB_ENABLED:
         try:
@@ -3261,11 +3765,13 @@ with app.app_context():
             print(f'[MDW] WARNING: cannot reach the file database: {type(error).__name__}: {error}', flush=True)
     ensure_columns()
     ensure_global_conversation()
-    secure_tables()
-    migrate_legacy_files()
     seed_questions()
+    seed_portfolio()
     ensure_admin()
     print_startup_report()
+    print(f'[MDW] Ready in {time.time() - started:.2f}s', flush=True)
+
+threading.Thread(target=run_background_maintenance, name='mdw-maintenance', daemon=True).start()
 
 
 if __name__ == '__main__':

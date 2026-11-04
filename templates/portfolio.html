@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body>
+    <section class="sub-hero">
+        <div class="container">
+            {% set page = 'portfolio' %}
+            {% include '_site_header.html' %}
+            <button id="topBtn"><i class="fa-solid fa-arrow-up"></i></button>
+            <div class="page-intro">
+                <span class="section-tag"><i class="fa-solid fa-briefcase"></i> Our Work</span>
+                <h1>Projects by <span>Manantan Digital Works</span></h1>
+                <p>Websites, networks and digital solutions built by our team. Every project below is managed from the admin panel.</p>
+            </div>
+        </div>
+    </section>
+
+    <main class="page-body">
+        <div class="container">
+            <div class="chips" id="chips" role="tablist" aria-label="Filter projects"></div>
+            <div class="card-grid" id="grid">
+                <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+            </div>
+        </div>
+    </main>
+
+    {% include '_site_footer.html' %}
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/portfolio.js') }}"></script>
+</body>
+</html>

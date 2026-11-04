@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Packet Tracer | MDW Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-books.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-extra.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-shop.css') }}">
+</head>
+<body data-base="{{ base }}">
+    <div class="admin-wrap">
+        {% set admin_active = 'packet' %}
+        {% include '_admin_nav.html' %}
+
+        <main class="admin-main">
+            <header class="admin-top">
+                <button type="button" class="btn btn-ghost side-toggle" id="sideToggle" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+                <h1>Packet Tracer lab manager</h1>
+                <a class="btn btn-ghost" href="/packet-tracer" target="_blank" rel="noopener" style="margin-left:auto"><i class="fa-solid fa-arrow-up-right-from-square"></i> View public page</a>
+            </header>
+
+            <div class="metric-grid" id="ptMetrics"></div>
+
+            <div class="card">
+                <h3>Activity, last 14 days</h3>
+                <div class="pt-chart" id="ptChart" aria-label="Downloads and simulator pings per day"></div>
+                <div class="pt-legend"><span class="dot dl"></span> Downloads <span class="dot pg"></span> Simulator pings</div>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <h3>Upload a lab</h3>
+                <form id="labForm" class="book-form" novalidate>
+                    <label class="form-label" for="lTitle">Lab title</label>
+                    <input type="text" id="lTitle" maxlength="120" placeholder="Example: Static Routing with 2 Routers" autocomplete="off">
+
+                    <label class="form-label" for="lLevel">Level</label>
+                    <select id="lLevel">
+                        {% for name in levels %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+                    </select>
+
+                    <label class="form-label" for="lDescription">Description (optional)</label>
+                    <textarea id="lDescription" rows="3" maxlength="1000" placeholder="What the student should configure or learn"></textarea>
+
+                    <label class="form-label" for="lFile">Packet Tracer file (.pkt, .pka or .pkz, 25 MB max)</label>
+                    <input type="file" id="lFile" accept=".pkt,.pka,.pkz">
+
+                    <div class="progress" id="progressWrap" hidden>
+                        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+                        <span id="progressText">0%</span>
+                    </div>
+
+                    <div class="form-error" id="labError" role="alert"></div>
+                    <button type="submit" class="btn btn-primary" id="labBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Upload lab</button>
+                </form>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <div class="toolbar">
+                    <h3 style="margin: 0;">Uploaded labs</h3>
+                    <span class="muted small" id="labNote"></span>
+                </div>
+                <div class="table-wrap"><table class="data-table" id="labsTable"></table></div>
+            </div>
+        </main>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="{{ url_for('static', filename='js/admin-common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/admin-pt.js') }}"></script>
+</body>
+</html>

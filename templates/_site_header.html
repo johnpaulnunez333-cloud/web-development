@@ -1,0 +1,32 @@
+{# Shared public header: used by the home page, Portfolio, Packet Tracer and the Networking pages. #}
+            <header>
+                <div class="logo">
+                    <img src="{{ url_for('static', filename='images/Logo.jpg') }}" alt="MDW Logo" class="logo-img">
+                    MDW <span>Manantan Digital Works</span>
+                </div>
+                <div class="visitor-badge">
+                    <span class="visitor-dot"></span>
+                    <span>ONLINE</span>
+                </div>
+                <nav>
+                    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="navList">
+                        <span></span><span></span><span></span>
+                    </button>
+                    <ul id="navList">
+                        <li><a href="{{ url_for('index') }}#home">Home</a></li>
+                        <li><a href="{{ url_for('index') }}#about">About</a></li>
+                        <li><a href="{{ url_for('index') }}#services">Services</a></li>
+                        <li><a href="{{ url_for('portfolio') }}" class="{{ 'active' if page == 'portfolio' }}">Portfolio</a></li>
+                        <li><a href="{{ url_for('packet_tracer') }}" class="{{ 'active' if page == 'packet' }}">Packet Tracer</a></li>
+                        <li><a href="{{ url_for('books') }}">Manantan Books</a></li>
+                        <li><a href="{{ url_for('shop') }}">Electronics Shop</a></li>
+                        <li><a href="{{ url_for('networking_home') }}" class="{{ 'active' if page == 'networking' }}">Networking Tool</a></li>
+                        <li><a href="{{ url_for('chat') }}">Conversation</a></li>
+                        <li><a href="{{ url_for('ai_assistant') }}">AI Assistant</a></li>
+                        <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                        <li><a href="{{ url_for('index') }}#contact">Contact</a></li>
+                        <li id="nav-login-item"><a href="{{ url_for('login') }}">Login</a></li>
+                        <li id="nav-logout-item" style="display:none;"><a href="#" id="nav-logout-link">Logout</a></li>
+                    </ul>
+                </nav>
+            </header>

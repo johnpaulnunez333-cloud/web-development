@@ -12,3 +12,4 @@ Werkzeug==3.0.2
 SQLAlchemy==2.0.55
 psycopg2-binary==2.9.13
 PyMySQL==1.2.3
+simple-websocket==1.0.0

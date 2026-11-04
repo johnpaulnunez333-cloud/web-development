@@ -1,0 +1,50 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_gallery' %}
+{% set net_title = 'Topology Gallery' %}
+{% block intro %}
+<div class="page-intro"><span class="section-tag">Gallery</span><h1>Sample <span>Topologies</span></h1><p>Ready-made labs drawn live from the simulator. Open any of them and start testing.</p></div>
+{% endblock %}
+{% block content %}
+<div class="gallery-grid" id="gallery"></div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pt-engine.js') }}"></script>
+<script>
+(function () {
+    var presets = PTEngine.buildPresets();
+    var grid = document.getElementById('gallery');
+    var NS = 'http://www.w3.org/2000/svg';
+    var colors = { pc: '#4fc3f7', router: '#ffb454', switch: '#4ade80' };
+    function el(tag, attrs) { var n = document.createElementNS(NS, tag); for (var k in attrs) n.setAttribute(k, attrs[k]); return n; }
+    Object.keys(presets).forEach(function (key) {
+        var p = presets[key];
+        var s = el('svg', { viewBox: '0 0 760 400', preserveAspectRatio: 'xMidYMid meet', role: 'img', 'aria-label': p.title });
+        p.data.links.forEach(function (l) {
+            var a = p.data.devices.find(function (d) { return d.id === l.a.d; }), b = p.data.devices.find(function (d) { return d.id === l.b.d; });
+            s.appendChild(el('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#4ade80', 'stroke-width': 4 }));
+        });
+        p.data.devices.forEach(function (d) {
+            var g = el('g', {});
+            var shape = d.type === 'pc' ? el('rect', { x: d.x - 26, y: d.y - 20, width: 52, height: 40, rx: 6 })
+                : d.type === 'router' ? el('circle', { cx: d.x, cy: d.y, r: 28 }) : el('rect', { x: d.x - 34, y: d.y - 16, width: 68, height: 32, rx: 4 });
+            shape.setAttribute('fill', '#0d1b2e'); shape.setAttribute('stroke', colors[d.type]); shape.setAttribute('stroke-width', 3);
+            g.appendChild(shape);
+            var t = el('text', { x: d.x, y: d.y + 5, 'text-anchor': 'middle', fill: colors[d.type], 'font-size': 14, 'font-weight': 700 });
+            t.textContent = d.type === 'pc' ? 'PC' : d.type === 'router' ? 'R' : 'SW';
+            g.appendChild(t);
+            var n = el('text', { x: d.x, y: d.y + 50, 'text-anchor': 'middle', fill: '#e8f4fd', 'font-size': 13 });
+            n.textContent = d.name + (d.ip ? ' ' + d.ip : '');
+            g.appendChild(n);
+            s.appendChild(g);
+        });
+        var card = document.createElement('div'); card.className = 'gallery-item';
+        card.appendChild(s);
+        var body = document.createElement('div');
+        var h = document.createElement('h3'); h.textContent = p.title;
+        var note = document.createElement('p'); note.textContent = p.note;
+        var a = document.createElement('a'); a.className = 'pbtn'; a.href = '/networking/simulation?preset=' + encodeURIComponent(key); a.textContent = 'Open in simulator';
+        body.append(h, note, a); card.appendChild(body); grid.appendChild(card);
+    });
+})();
+</script>
+{% endblock %}

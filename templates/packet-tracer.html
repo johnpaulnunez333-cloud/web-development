@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packet Tracer | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body>
+    <section class="sub-hero">
+        <div class="container">
+            {% set page = 'packet' %}
+            {% include '_site_header.html' %}
+            <button id="topBtn"><i class="fa-solid fa-arrow-up"></i></button>
+            <div class="page-intro">
+                <span class="section-tag"><i class="fa-solid fa-network-wired"></i> Packet Tracer</span>
+                <h1>Network Labs &amp; <span>Simulator</span></h1>
+                <p>Download Cisco Packet Tracer practice labs from our team, or build and test a network right here in your browser.</p>
+            </div>
+        </div>
+    </section>
+
+    <main class="page-body">
+        <div class="container">
+            <div class="cta-band">
+                <div>
+                    <h3><i class="fa-solid fa-play"></i> Browser Network Simulator</h3>
+                    <p>Drag routers, switches and PCs, wire them up, configure with a Cisco-style CLI, and test ping and static routing.</p>
+                </div>
+                <a class="pbtn solid" href="{{ url_for('networking_simulation') }}">Open simulator <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+
+            <div class="stat-row" id="stats">
+                <div class="stat-box"><strong id="stLabs">-</strong><span>Labs available</span></div>
+                <div class="stat-box"><strong id="stDownloads">-</strong><span>Downloads</span></div>
+                <div class="stat-box"><strong id="stPings">-</strong><span>Simulator pings</span></div>
+            </div>
+
+            <h2 class="section-sub">Practice labs (.pkt)</h2>
+            <div class="lab-list" id="labs"><div class="skeleton" style="height:90px"></div></div>
+        </div>
+    </main>
+
+    {% include '_site_footer.html' %}
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/labs.js') }}"></script>
+</body>
+</html>

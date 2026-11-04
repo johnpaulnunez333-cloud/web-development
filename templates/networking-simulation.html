@@ -1,0 +1,70 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_simulation' %}
+{% set net_title = 'Network Simulator' %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/sim.css') }}">{% endblock %}
+{% block intro %}
+<div class="page-intro tight">
+    <h1>Network <span>Simulator</span></h1>
+    <p>Add devices, connect them, set IP addresses and test with <code>ping</code>. Routers use a Cisco-style CLI with static routes. Interfaces start shut down, just like the real thing.</p>
+</div>
+{% endblock %}
+{% block content %}
+<div class="sim" id="sim">
+    <div class="sim-bar">
+        <div class="tool-group" id="tools">
+            <button type="button" class="tool on" data-tool="select" title="Select and move devices"><i class="fa-solid fa-arrow-pointer"></i><span>Select</span></button>
+            <button type="button" class="tool" data-tool="add-pc" title="Place a PC"><i class="fa-solid fa-desktop"></i><span>PC</span></button>
+            <button type="button" class="tool" data-tool="add-router" title="Place a router"><i class="fa-solid fa-route"></i><span>Router</span></button>
+            <button type="button" class="tool" data-tool="add-switch" title="Place a switch"><i class="fa-solid fa-ethernet"></i><span>Switch</span></button>
+            <button type="button" class="tool" data-tool="cable" title="Click two devices to connect them"><i class="fa-solid fa-plug"></i><span>Cable</span></button>
+            <button type="button" class="tool" data-tool="ping" title="Click a source, then a destination"><i class="fa-solid fa-paper-plane"></i><span>Ping</span></button>
+            <button type="button" class="tool" data-tool="delete" title="Click a device or cable to delete it"><i class="fa-solid fa-trash"></i><span>Delete</span></button>
+        </div>
+        <div class="tool-group right">
+            <select id="presetSelect" aria-label="Load a sample lab"><option value="">Sample labs...</option></select>
+            <button type="button" class="tool" id="exportBtn" title="Download this topology as a file"><i class="fa-solid fa-file-export"></i><span>Export</span></button>
+            <label class="tool" title="Load a topology file"><i class="fa-solid fa-file-import"></i><span>Import</span><input type="file" id="importFile" accept=".json,application/json" hidden></label>
+            <button type="button" class="tool" id="clearBtn" title="Remove everything"><i class="fa-solid fa-eraser"></i><span>Clear</span></button>
+        </div>
+    </div>
+    <div class="sim-hint" id="hint">Select tool: drag devices to move them. Click a device to configure it.</div>
+
+    <div class="sim-main">
+        <div class="canvas-wrap" id="canvasWrap">
+            <div class="canvas" id="canvas">
+                <svg id="wires" width="1000" height="560" aria-hidden="true"></svg>
+                <div id="nodes"></div>
+            </div>
+        </div>
+
+        <aside class="inspector" id="inspector">
+            <div class="empty" id="inspEmpty"><i class="fa-solid fa-hand-pointer"></i><p>Click a device to configure it and open its command line.</p></div>
+            <div id="inspBody" hidden>
+                <div class="insp-head"><i id="inspIcon" class="fa-solid fa-desktop"></i><input id="inspName" maxlength="20" aria-label="Device name"><span id="inspType" class="muted"></span></div>
+                <div id="pcForm" class="insp-form" hidden>
+                    <label>IP address<input id="fIp" placeholder="192.168.1.10" autocomplete="off"></label>
+                    <label>Subnet mask<input id="fMask" placeholder="255.255.255.0" autocomplete="off"></label>
+                    <label>Default gateway<input id="fGw" placeholder="192.168.1.1" autocomplete="off"></label>
+                    <button type="button" class="pbtn solid" id="fApply">Apply</button>
+                    <div class="form-msg" id="fMsg" role="alert"></div>
+                </div>
+                <div class="port-table" id="portTable"></div>
+                <div class="term" id="term">
+                    <div class="term-head"><span><i class="fa-solid fa-terminal"></i> Command line</span><button type="button" id="termClear" title="Clear screen">Clear</button></div>
+                    <div class="term-out" id="termOut" tabindex="0"></div>
+                    <div class="term-in"><span id="termPrompt"></span><input id="termInput" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command"></div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="event-log">
+        <div class="log-head"><strong><i class="fa-solid fa-list"></i> Event log</strong><button type="button" id="logClear">Clear</button></div>
+        <div id="logList" class="log-list"><div class="log-empty">Ping results appear here.</div></div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pt-engine.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pt-sim.js') }}"></script>
+{% endblock %}

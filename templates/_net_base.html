@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ net_title or 'Networking Tool' }} | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <section class="sub-hero">
+        <div class="container">
+            {% set page = 'networking' %}
+            {% include '_site_header.html' %}
+            <button id="topBtn"><i class="fa-solid fa-arrow-up"></i></button>
+            <nav class="net-tabs" aria-label="Networking tool pages">
+                {% for endpoint, label, icon in net_pages %}
+                <a href="{{ url_for(endpoint) }}" class="{{ 'on' if endpoint == net_active }}"><i class="fa-solid {{ icon }}"></i> {{ label }}</a>
+                {% endfor %}
+            </nav>
+            {% block intro %}{% endblock %}
+        </div>
+    </section>
+
+    <main class="page-body">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    {% include '_site_footer.html' %}
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

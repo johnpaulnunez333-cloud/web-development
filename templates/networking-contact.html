@@ -1,0 +1,22 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_contact' %}
+{% set net_title = 'Contact' %}
+{% block intro %}
+<div class="page-intro"><span class="section-tag">Contact</span><h1>Talk to the <span>Networking Team</span></h1><p>Questions about a lab, a configuration, or a network for your business? Reach us through the MDW site.</p></div>
+{% endblock %}
+{% block content %}
+<div class="feature-grid">
+    <a class="feature" href="{{ url_for('chat') }}"><i class="fa-solid fa-comments"></i><h3>Conversation</h3><p>Message the team directly in the MDW chat (login required).</p></a>
+    <a class="feature" href="{{ url_for('ai_assistant') }}"><i class="fa-solid fa-robot"></i><h3>AI Assistant</h3><p>Ask a quick networking question and get a beginner-friendly answer.</p></a>
+    <a class="feature" href="{{ url_for('index') }}#contact"><i class="fa-solid fa-house"></i><h3>Main site</h3><p>All the ways to reach Manantan Digital Works.</p></a>
+</div>
+<div class="prose">
+    <h2>Networking members</h2>
+    <div class="team-mini">
+        <div><strong>Mark EJ Delos Angeles</strong><span>Hardware and Networking</span></div>
+        <div><strong>Louie Nhelson Puno</strong><span>Networking Administration</span></div>
+        <div><strong>James Pascual</strong><span>IT Support</span></div>
+        <div><strong>Kyle Kristan M. Manantan</strong><span>Team Leader</span></div>
+    </div>
+</div>
+{% endblock %}

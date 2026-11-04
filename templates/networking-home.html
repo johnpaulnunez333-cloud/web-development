@@ -1,0 +1,30 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_home' %}
+{% set net_title = 'Networking Tool' %}
+{% block intro %}
+<div class="page-intro">
+    <span class="section-tag"><i class="fa-solid fa-network-wired"></i> Networking Tool</span>
+    <h1>Learn, Build and <span>Test Networks</span></h1>
+    <p>A study and practice space from Manantan Digital Works: guides on topologies and IP addressing, Cisco configuration cheat sheets, and a simulator you can use right in your browser.</p>
+</div>
+{% endblock %}
+{% block content %}
+<div class="cta-band">
+    <div>
+        <h3><i class="fa-solid fa-play"></i> Try the simulator</h3>
+        <p>Open a ready-made lab with two routers and add the static routes yourself.</p>
+    </div>
+    <a class="pbtn solid" href="{{ url_for('networking_simulation') }}?preset=static_routes">Start the static routing lab <i class="fa-solid fa-arrow-right"></i></a>
+</div>
+<div class="feature-grid">
+    <a class="feature" href="{{ url_for('networking_about') }}"><i class="fa-solid fa-circle-info"></i><h3>About</h3><p>What this tool is for and what you can learn.</p></a>
+    <a class="feature" href="{{ url_for('networking_topology') }}"><i class="fa-solid fa-diagram-project"></i><h3>Topology</h3><p>Star, bus, ring, mesh and tree layouts explained.</p></a>
+    <a class="feature" href="{{ url_for('networking_devices') }}"><i class="fa-solid fa-server"></i><h3>Devices</h3><p>Routers, switches, access points and what each one does.</p></a>
+    <a class="feature" href="{{ url_for('networking_ip_addressing') }}"><i class="fa-solid fa-hashtag"></i><h3>IP Addressing</h3><p>Classes, private ranges and a working subnet calculator.</p></a>
+    <a class="feature" href="{{ url_for('networking_switch_config') }}"><i class="fa-solid fa-terminal"></i><h3>Switch Config</h3><p>Cisco command cheat sheet with copy buttons.</p></a>
+    <a class="feature" href="{{ url_for('networking_simulation') }}"><i class="fa-solid fa-play"></i><h3>Simulation</h3><p>Build a network, run ping and trace the route.</p></a>
+    <a class="feature" href="{{ url_for('networking_gallery') }}"><i class="fa-solid fa-images"></i><h3>Gallery</h3><p>Sample topologies you can open in the simulator.</p></a>
+    <a class="feature" href="{{ url_for('networking_download') }}"><i class="fa-solid fa-download"></i><h3>Download</h3><p>Packet Tracer labs (.pkt) and cheat sheets.</p></a>
+    <a class="feature" href="{{ url_for('networking_contact') }}"><i class="fa-solid fa-envelope"></i><h3>Contact</h3><p>Reach the team behind the tool.</p></a>
+</div>
+{% endblock %}

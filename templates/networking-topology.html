@@ -1,0 +1,38 @@
+{% extends "_net_base.html" %}
+{% set net_active = 'networking_topology' %}
+{% set net_title = 'Network Topologies' %}
+{% block intro %}
+<div class="page-intro"><span class="section-tag">Topology</span><h1>Network <span>Topologies</span></h1><p>A topology is the layout of devices and the links between them.</p></div>
+{% endblock %}
+{% block content %}
+<div class="topo-grid">
+    <div class="topo">
+        <svg viewBox="0 0 300 170" aria-label="Star topology"><g stroke="#4fc3f7" stroke-width="2"><line x1="150" y1="85" x2="150" y2="22"/><line x1="150" y1="85" x2="60" y2="50"/><line x1="150" y1="85" x2="240" y2="50"/><line x1="150" y1="85" x2="70" y2="140"/><line x1="150" y1="85" x2="230" y2="140"/></g><g fill="#0d1b2e" stroke="#4fc3f7" stroke-width="2"><circle cx="150" cy="85" r="18" fill="#12395a"/><circle cx="150" cy="22" r="11"/><circle cx="60" cy="50" r="11"/><circle cx="240" cy="50" r="11"/><circle cx="70" cy="140" r="11"/><circle cx="230" cy="140" r="11"/></g></svg>
+        <h3>Star</h3><p>Every device connects to a central switch. Easy to manage and a failed cable affects one device only. If the switch fails, the whole network stops. The most common LAN layout.</p>
+    </div>
+    <div class="topo">
+        <svg viewBox="0 0 300 170" aria-label="Bus topology"><line x1="20" y1="85" x2="280" y2="85" stroke="#4fc3f7" stroke-width="4"/><g stroke="#4fc3f7" stroke-width="2"><line x1="60" y1="85" x2="60" y2="40"/><line x1="130" y1="85" x2="130" y2="130"/><line x1="200" y1="85" x2="200" y2="40"/><line x1="255" y1="85" x2="255" y2="130"/></g><g fill="#0d1b2e" stroke="#4fc3f7" stroke-width="2"><circle cx="60" cy="32" r="11"/><circle cx="130" cy="138" r="11"/><circle cx="200" cy="32" r="11"/><circle cx="255" cy="138" r="11"/></g></svg>
+        <h3>Bus</h3><p>All devices share one backbone cable. Cheap and simple, but one break splits the network and performance drops as devices are added. Mostly historical.</p>
+    </div>
+    <div class="topo">
+        <svg viewBox="0 0 300 170" aria-label="Ring topology"><circle cx="150" cy="85" r="60" fill="none" stroke="#4fc3f7" stroke-width="2"/><g fill="#0d1b2e" stroke="#4fc3f7" stroke-width="2"><circle cx="150" cy="25" r="11"/><circle cx="210" cy="85" r="11"/><circle cx="150" cy="145" r="11"/><circle cx="90" cy="85" r="11"/><circle cx="192" cy="43" r="11"/><circle cx="108" cy="127" r="11"/></g></svg>
+        <h3>Ring</h3><p>Each device connects to exactly two neighbours, forming a loop. Data travels in one direction (or both in a dual ring). Used in some fibre backbones.</p>
+    </div>
+    <div class="topo">
+        <svg viewBox="0 0 300 170" aria-label="Mesh topology"><g stroke="#4fc3f7" stroke-width="1.6"><line x1="60" y1="30" x2="240" y2="30"/><line x1="60" y1="30" x2="60" y2="140"/><line x1="60" y1="30" x2="240" y2="140"/><line x1="240" y1="30" x2="240" y2="140"/><line x1="240" y1="30" x2="60" y2="140"/><line x1="60" y1="140" x2="240" y2="140"/></g><g fill="#0d1b2e" stroke="#4fc3f7" stroke-width="2"><circle cx="60" cy="30" r="11"/><circle cx="240" cy="30" r="11"/><circle cx="60" cy="140" r="11"/><circle cx="240" cy="140" r="11"/></g></svg>
+        <h3>Mesh</h3><p>Devices have direct links to many others. Very reliable because traffic can take another path, but expensive to cable. Used between routers on the internet.</p>
+    </div>
+    <div class="topo">
+        <svg viewBox="0 0 300 170" aria-label="Tree topology"><g stroke="#4fc3f7" stroke-width="2"><line x1="150" y1="25" x2="80" y2="80"/><line x1="150" y1="25" x2="220" y2="80"/><line x1="80" y1="80" x2="40" y2="145"/><line x1="80" y1="80" x2="120" y2="145"/><line x1="220" y1="80" x2="180" y2="145"/><line x1="220" y1="80" x2="260" y2="145"/></g><g fill="#0d1b2e" stroke="#4fc3f7" stroke-width="2"><circle cx="150" cy="25" r="14" fill="#12395a"/><circle cx="80" cy="80" r="12"/><circle cx="220" cy="80" r="12"/><circle cx="40" cy="145" r="10"/><circle cx="120" cy="145" r="10"/><circle cx="180" cy="145" r="10"/><circle cx="260" cy="145" r="10"/></g></svg>
+        <h3>Tree (hierarchical)</h3><p>Stars connected in layers: core, distribution and access. Scales well for buildings and campuses. A failure high in the tree isolates everything below it.</p>
+    </div>
+    <div class="topo">
+        <svg viewBox="0 0 300 170" aria-label="Hybrid topology"><g stroke="#4fc3f7" stroke-width="2"><line x1="150" y1="40" x2="60" y2="40"/><line x1="150" y1="40" x2="240" y2="40"/><line x1="60" y1="40" x2="30" y2="110"/><line x1="60" y1="40" x2="90" y2="110"/><line x1="240" y1="40" x2="210" y2="110"/><line x1="240" y1="40" x2="270" y2="110"/><line x1="60" y1="40" x2="240" y2="40" stroke-dasharray="4 4"/></g><g fill="#0d1b2e" stroke="#4fc3f7" stroke-width="2"><circle cx="150" cy="40" r="13" fill="#12395a"/><circle cx="60" cy="40" r="12"/><circle cx="240" cy="40" r="12"/><circle cx="30" cy="115" r="10"/><circle cx="90" cy="115" r="10"/><circle cx="210" cy="115" r="10"/><circle cx="270" cy="115" r="10"/></g></svg>
+        <h3>Hybrid</h3><p>Real networks mix layouts: for example stars at each office joined by a partial mesh of routers. Our simulator sample labs use this approach.</p>
+    </div>
+</div>
+<div class="cta-band" style="margin-top:30px">
+    <div><h3>See a topology working</h3><p>Open the sample lab with two LANs joined by a router.</p></div>
+    <a class="pbtn solid" href="{{ url_for('networking_simulation') }}?preset=routed_lans">Open in simulator <i class="fa-solid fa-arrow-right"></i></a>
+</div>
+{% endblock %}
