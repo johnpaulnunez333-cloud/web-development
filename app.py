@@ -996,6 +996,49 @@ def load_ai_config():
 
 AI_API_KEY, AI_PROVIDER_NAME, AI_BASE_URL, AI_MODEL = load_ai_config()
 
+# The main model is retried several times when it is overloaded (503) or times out.
+# Optional: set AI_FALLBACK_MODELS=model-a,model-b on Render to also try other models after that.
+_DEFAULT_FALLBACKS = {'gemini': '', 'deepseek': '', 'openrouter': '', 'openai': ''}
+AI_MODEL_CHAIN = [AI_MODEL] + [
+    m.strip() for m in (os.environ.get('AI_FALLBACK_MODELS') or _DEFAULT_FALLBACKS.get(AI_PROVIDER_NAME, '')).split(',')
+    if m.strip() and m.strip() != AI_MODEL
+]
+AI_RETRY_STATUSES = (429, 500, 502, 503, 504)
+
+
+def call_ai(messages):
+    """Retries the main model up to 3 times (short waits) when it is overloaded or times out, then tries any
+    models in AI_FALLBACK_MODELS. Returns the reply text, or raises the last error."""
+    last_error = None
+    attempts = [AI_MODEL_CHAIN[0]] * 3 + AI_MODEL_CHAIN[1:]
+    waits = [1.5, 3.0]
+    for index, model in enumerate(attempts):
+        try:
+            response = requests.post(
+                f"{AI_BASE_URL.rstrip('/')}/chat/completions",
+                headers={'Authorization': f'Bearer {AI_API_KEY}', 'Content-Type': 'application/json'},
+                json={'model': model, 'messages': messages, 'max_tokens': 900, 'temperature': 0.5},
+                timeout=(5, 20)
+            )
+            response.raise_for_status()
+            reply = response.json()['choices'][0]['message']['content']
+            if reply and str(reply).strip():
+                return reply
+            last_error = ValueError('empty reply')
+        except requests.exceptions.HTTPError as error:
+            status = error.response.status_code if error.response is not None else None
+            body = error.response.text[:300] if error.response is not None else ''
+            print(f'[AI Assistant Error] HTTP {status} | {AI_PROVIDER_NAME} | {model} | try {index + 1} | {body}', flush=True)
+            last_error = error
+            if status not in AI_RETRY_STATUSES and status != 404:
+                raise
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as error:
+            print(f'[AI Assistant Error] {type(error).__name__} | {model} | try {index + 1}', flush=True)
+            last_error = error
+        if index < len(waits):
+            time.sleep(waits[index])
+    raise last_error
+
 AI_FAILURE_HINTS = {
     400: 'The AI provider rejected the request. Check the model name and the key type.',
     401: 'The AI API key is invalid.',
@@ -1767,22 +1810,11 @@ def api_assistant():
     messages = [{'role': 'system', 'content': AI_SYSTEM_PROMPT}] + history + [{'role': 'user', 'content': message[:1000]}]
 
     try:
-        response = requests.post(
-            f"{AI_BASE_URL.rstrip('/')}/chat/completions",
-            headers={'Authorization': f'Bearer {AI_API_KEY}', 'Content-Type': 'application/json'},
-            json={'model': AI_MODEL, 'messages': messages, 'max_tokens': 900, 'temperature': 0.5},
-            timeout=45
-        )
-        response.raise_for_status()
-        reply = response.json()['choices'][0]['message']['content']
-        if not reply or not str(reply).strip():
-            return jsonify({'success': False, 'message': 'The assistant returned an empty answer. Try rephrasing your question.'}), 502
+        reply = call_ai(messages)
         ai_state['last_ok'] = utcnow()
         return jsonify({'success': True, 'reply': reply})
     except requests.exceptions.HTTPError as error:
         status = error.response.status_code if error.response is not None else None
-        body = error.response.text[:500] if error.response is not None else ''
-        print(f'[AI Assistant Error] HTTP {status} | {AI_PROVIDER_NAME} | {AI_MODEL} | {body}', flush=True)
         ai_state['last_fail'] = utcnow()
         ai_state['last_status'] = status
         return jsonify({'success': False, 'message': ai_failure_message(user, status)}), 502
