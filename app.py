@@ -1006,6 +1006,14 @@ AI_MODEL_CHAIN = [AI_MODEL] + [
 AI_RETRY_STATUSES = (429, 500, 502, 503, 504)
 
 
+def ai_payload(model, messages):
+    payload = {'model': model, 'messages': messages, 'max_tokens': 1500, 'temperature': 0.5}
+    if AI_PROVIDER_NAME == 'gemini':
+        # Thinking models can spend a long time reasoning; low effort keeps replies fast.
+        payload['reasoning_effort'] = os.environ.get('AI_REASONING_EFFORT', 'low')
+    return payload
+
+
 def call_ai(messages):
     """Retries the main model up to 3 times (short waits) when it is overloaded or times out, then tries any
     models in AI_FALLBACK_MODELS. Returns the reply text, or raises the last error."""
@@ -1017,8 +1025,8 @@ def call_ai(messages):
             response = requests.post(
                 f"{AI_BASE_URL.rstrip('/')}/chat/completions",
                 headers={'Authorization': f'Bearer {AI_API_KEY}', 'Content-Type': 'application/json'},
-                json={'model': model, 'messages': messages, 'max_tokens': 900, 'temperature': 0.5},
-                timeout=(5, 20)
+                json=ai_payload(model, messages),
+                timeout=(5, 35)
             )
             response.raise_for_status()
             reply = response.json()['choices'][0]['message']['content']
