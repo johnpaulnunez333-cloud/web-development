@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Quiz links | MDW Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-books.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-extra.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-shop.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-quiz-links.css') }}">
+</head>
+<body data-base="{{ base }}">
+    <div class="admin-wrap">
+        {% set admin_active = 'quizlinks' %}
+        {% include '_admin_nav.html' %}
+
+        <main class="admin-main">
+            <header class="admin-top">
+                <button type="button" class="btn btn-ghost side-toggle" id="sideToggle" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+                <h1>Quiz links</h1>
+            </header>
+
+            <div class="card">
+                <h3>Create a quiz link</h3>
+                <p class="muted small">Share the link with anyone. They only type their name, no login. The link stays closed until you activate it.</p>
+                <form id="linkForm" class="book-form" novalidate>
+                    <label class="form-label" for="qTitle">Quiz title</label>
+                    <input type="text" id="qTitle" maxlength="120" placeholder="Example: Python and Laravel Screening" autocomplete="off">
+
+                    <label class="form-label">Topics</label>
+                    <div class="topic-grid" id="topicGrid"></div>
+
+                    <div class="two-inputs">
+                        <div>
+                            <label class="form-label" for="qCount">Number of questions</label>
+                            <input type="text" id="qCount" inputmode="numeric" value="10">
+                        </div>
+                        <div>
+                            <label class="form-label" for="qSeconds">Seconds per question</label>
+                            <input type="text" id="qSeconds" inputmode="numeric" value="30">
+                        </div>
+                    </div>
+                    <div class="two-inputs">
+                        <div>
+                            <label class="form-label" for="qPass">Passing score (%)</label>
+                            <input type="text" id="qPass" inputmode="numeric" value="60">
+                        </div>
+                        <div>
+                            <label class="form-label" for="qLeaves">Auto-fail after this many leaves (0 = never)</label>
+                            <input type="text" id="qLeaves" inputmode="numeric" value="0">
+                        </div>
+                    </div>
+                    <label class="muted small check-line"><input type="checkbox" id="qTimeout"> When time runs out on a question, fail the whole quiz (otherwise only that question is marked wrong)</label>
+
+                    <div class="form-error" id="linkError" role="alert"></div>
+                    <div class="row-actions">
+                        <button type="submit" class="btn btn-primary" id="linkBtn"><i class="fa-solid fa-plus"></i> Create link</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <div class="toolbar">
+                    <h3 style="margin: 0;">Your links</h3>
+                    <span class="muted small" id="linkNote"></span>
+                </div>
+                <div class="table-wrap"><table class="data-table" id="linksTable"></table></div>
+            </div>
+
+            <div class="card" style="margin-top: 20px;" id="resultsCard" hidden>
+                <div class="toolbar">
+                    <h3 style="margin: 0;" id="resultsTitle">Results</h3>
+                    <button type="button" class="btn btn-ghost" id="refreshResults"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                </div>
+                <p class="muted small">Leaves = how many times the person left the quiz screen or switched tab. 0 is clean, 1 to 2 is suspicious, 3 or more is likely cheating. Tap a row for the full timeline.</p>
+                <div class="table-wrap"><table class="data-table" id="resultsTable"></table></div>
+            </div>
+        </main>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="{{ url_for('static', filename='js/admin-common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/admin-quiz-links.js') }}"></script>
+</body>
+</html>

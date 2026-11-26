@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ link.title if link else 'Quiz' }} | Manantan Digital Works</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/quiz-link.css') }}">
+</head>
+<body data-token="{{ token }}"
+      data-state="{{ 'missing' if not link else ('open' if link.active else 'closed') }}"
+      {% if link %}data-seconds="{{ link.seconds_per_question }}" data-pass="{{ link.pass_percent }}" data-maxleaves="{{ link.max_leaves }}" data-timeoutfails="{{ 1 if link.timeout_fails else 0 }}" data-count="{{ link.question_count }}"{% endif %}>
+    <div class="ql-warn" id="warn" role="alert" hidden></div>
+
+    <main class="ql-wrap">
+        <div class="ql-brand"><i class="fa-solid fa-network-wired"></i> Manantan Digital Works</div>
+
+        <section class="ql-card" id="screenIntro" hidden>
+            <h1 id="introTitle">{{ link.title if link else '' }}</h1>
+            <p class="ql-muted">Sagutin ang quiz sa ibaba. Pangalan mo lang ang kailangan, walang login.</p>
+            <ul class="ql-rules">
+                <li><i class="fa-solid fa-clock"></i> <span id="ruleTime"></span></li>
+                <li><i class="fa-solid fa-list-check"></i> <span id="ruleCount"></span></li>
+                <li><i class="fa-solid fa-eye"></i> <span id="ruleLeave"></span></li>
+                <li><i class="fa-solid fa-flag-checkered"></i> <span id="rulePass"></span></li>
+            </ul>
+            <form id="startForm" novalidate>
+                <label class="ql-label" for="nameInput">Buong pangalan</label>
+                <input type="text" id="nameInput" maxlength="60" autocomplete="name" placeholder="Halimbawa: Juan Dela Cruz">
+                <div class="ql-error" id="startError" role="alert"></div>
+                <button type="submit" class="ql-btn" id="startBtn"><i class="fa-solid fa-play"></i> Simulan ang quiz</button>
+            </form>
+        </section>
+
+        <section class="ql-card ql-quiz" id="screenQuiz" hidden>
+            <div class="ql-top">
+                <span id="progressText">Tanong 1</span>
+                <span class="ql-leaves" id="leavesBadge" title="Ilang beses kang lumabas sa quiz screen"><i class="fa-solid fa-eye-slash"></i> <b id="leavesCount">0</b></span>
+            </div>
+            <div class="ql-bar"><div class="ql-bar-fill" id="timerBar"></div></div>
+            <div class="ql-timer" id="timerText" role="timer" aria-live="off">30</div>
+            <h2 class="ql-question" id="questionText"></h2>
+            <div class="ql-options" id="options"></div>
+            <div class="ql-error" id="quizError" role="alert"></div>
+            <button type="button" class="ql-btn" id="nextBtn" disabled>Susunod <i class="fa-solid fa-arrow-right"></i></button>
+        </section>
+
+        <section class="ql-card ql-result" id="screenResult" hidden>
+            <div class="ql-badge" id="resultBadge"></div>
+            <h1 id="resultName"></h1>
+            <div class="ql-score"><span id="resultPercent">0</span><small>%</small></div>
+            <p id="resultLine" class="ql-muted"></p>
+            <p id="resultReason" class="ql-reason" hidden></p>
+            <p id="resultLeaves" class="ql-muted"></p>
+            <button type="button" class="ql-btn ql-ghost" id="retryBtn" hidden>Kumuha ulit</button>
+        </section>
+
+        <section class="ql-card ql-closed" id="screenClosed" hidden>
+            <i class="fa-solid fa-lock ql-big"></i>
+            <h1 id="closedTitle">Sarado ang quiz</h1>
+            <p class="ql-muted" id="closedText">Hindi pa bukas ang quiz na ito. Hintayin ang abiso ng nagbigay ng link.</p>
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/quiz-link.js') }}"></script>
+</body>
+</html>

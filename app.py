@@ -32,7 +32,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from avatars import AVATAR_KEYS, AVATAR_LABELS, render_avatar
-from quiz_data import QUESTIONS, QUIZ_PLAN
+from quiz_data import QUESTIONS, QUIZ_PLAN, EXTRA_CATEGORIES, EXTRA_QUESTIONS
 
 
 def build_database_config():
@@ -179,7 +179,7 @@ BOOK_CATEGORIES = list(QUIZ_PLAN.keys()) + ['General']
 GLOBAL_CONVERSATION = {'id': None}
 ai_state = {'last_ok': None, 'last_fail': None, 'last_status': None}
 mail_state = {'last_ok': None, 'last_fail': None, 'last_error': ''}
-CATEGORIES = list(QUIZ_PLAN.keys())
+CATEGORIES = list(QUIZ_PLAN.keys()) + EXTRA_CATEGORIES
 
 failed_login_attempts = {}
 online = {}
@@ -244,6 +244,49 @@ class QuizAttempt(db.Model):
     risk_notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     user = db.relationship('User')
+
+
+class QuizLink(db.Model):
+    """A shareable quiz link. Anyone with the link can take the quiz with just a name while it is active."""
+    __tablename__ = 'mdw_quiz_links'
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(32), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(120), nullable=False)
+    categories = db.Column(db.Text, nullable=False, default='[]')
+    question_count = db.Column(db.Integer, nullable=False, default=10)
+    seconds_per_question = db.Column(db.Integer, nullable=False, default=30)
+    pass_percent = db.Column(db.Integer, nullable=False, default=60)
+    timeout_fails = db.Column(db.Boolean, nullable=False, default=False)
+    max_leaves = db.Column(db.Integer, nullable=False, default=0)
+    active = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+
+
+class QuizSession(db.Model):
+    """One person taking one quiz link. The server keeps the clock, the answers and the leave counter."""
+    __tablename__ = 'mdw_quiz_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    link_id = db.Column(db.Integer, db.ForeignKey('mdw_quiz_links.id'), nullable=False, index=True)
+    sid = db.Column(db.String(40), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(60), nullable=False)
+    attempt_no = db.Column(db.Integer, nullable=False, default=1)
+    question_ids = db.Column(db.Text, nullable=False, default='[]')
+    answers = db.Column(db.Text, nullable=False, default='{}')
+    current_index = db.Column(db.Integer, nullable=False, default=0)
+    q_started_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    started_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    finished_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(12), nullable=False, default='running', index=True)
+    fail_reason = db.Column(db.String(30), nullable=False, default='')
+    score = db.Column(db.Integer, nullable=False, default=0)
+    total = db.Column(db.Integer, nullable=False, default=0)
+    percent = db.Column(db.Integer, nullable=False, default=0)
+    leave_count = db.Column(db.Integer, nullable=False, default=0)
+    away_seconds = db.Column(db.Integer, nullable=False, default=0)
+    reload_count = db.Column(db.Integer, nullable=False, default=0)
+    last_leave_at = db.Column(db.DateTime, nullable=True)
+    events = db.Column(db.Text, nullable=False, default='[]')
+    link = db.relationship('QuizLink')
 
 
 class Conversation(db.Model):
@@ -457,6 +500,20 @@ def seed_questions():
     for category, text, options, answer in QUESTIONS:
         db.session.add(Question(category=category, question=text, options=json.dumps(options), answer=answer))
     db.session.commit()
+
+
+def seed_extra_questions():
+    """Adds the Python and PHP Laravel questions once. A topic that already has questions is left alone."""
+    added = False
+    for category in EXTRA_CATEGORIES:
+        if Question.query.filter_by(category=category).count() > 0:
+            continue
+        for cat, text, options, answer in EXTRA_QUESTIONS:
+            if cat == category:
+                db.session.add(Question(category=cat, question=text, options=json.dumps(options), answer=answer))
+                added = True
+    if added:
+        db.session.commit()
 
 
 def ensure_admin():
@@ -1635,6 +1692,455 @@ def api_quiz_submit():
         'weak_category': weak,
         'recommended_books': [book_dict(b) for b in books]
     })
+
+
+# ---------------------------------------------------------------------------
+# Quiz links: a shareable link, no login, only a name. The server owns the clock.
+# ---------------------------------------------------------------------------
+QUIZ_GRACE_SECONDS = 2
+QUIZ_EVENT_KINDS = ('left', 'back', 'copy', 'paste', 'menu')
+QUIZ_FAIL_TEXT = {
+    'time_up': 'Naubos ang oras.',
+    'too_many_leaves': 'Masyadong maraming beses na lumabas sa quiz screen.',
+    'low_score': 'Hindi umabot sa passing score.',
+}
+
+
+def quiz_rate_key():
+    # One classroom often shares a single Wi-Fi address, so quiz calls are limited per quiz session, not per address.
+    data = request.get_json(silent=True) or {}
+    sid = data.get('sid') if isinstance(data, dict) else None
+    return 'quiz:' + str(sid)[:40] if sid else get_remote_address()
+
+
+def clean_person_name(raw):
+    name = ' '.join(str(raw or '').split())
+    return name if 2 <= len(name) <= 60 else None
+
+
+def quiz_link_categories(link):
+    try:
+        values = json.loads(link.categories or '[]')
+    except ValueError:
+        values = []
+    return [c for c in values if isinstance(c, str)]
+
+
+def quiz_log_event(sess, kind, extra=None):
+    try:
+        events = json.loads(sess.events or '[]')
+    except ValueError:
+        events = []
+    if len(events) >= 150:
+        return
+    total = len(json.loads(sess.question_ids or '[]'))
+    entry = {'t': iso(utcnow()), 'type': kind, 'q': min(sess.current_index + 1, max(total, 1))}
+    if extra:
+        entry.update(extra)
+    events.append(entry)
+    sess.events = json.dumps(events)
+
+
+def quiz_question_map(sess):
+    ids = json.loads(sess.question_ids or '[]')
+    rows = Question.query.filter(Question.id.in_(ids)).all() if ids else []
+    return {q.id: q for q in rows}
+
+
+def quiz_close_away(sess, now):
+    if sess.last_leave_at:
+        away = int((now - sess.last_leave_at).total_seconds())
+        sess.away_seconds += max(0, min(away, 86400))
+        sess.last_leave_at = None
+
+
+def quiz_finish(sess, link, qmap, now, reason=''):
+    answers = json.loads(sess.answers or '{}')
+    score = counted = 0
+    for qid in json.loads(sess.question_ids or '[]'):
+        q = qmap.get(qid)
+        if not q:
+            continue
+        counted += 1
+        given = answers.get(str(qid)) or {}
+        if isinstance(given.get('c'), int) and given['c'] == q.answer:
+            score += 1
+    sess.score = score
+    sess.total = counted
+    sess.percent = round(score / counted * 100) if counted else 0
+    sess.finished_at = now
+    quiz_close_away(sess, now)
+    if reason:
+        sess.status, sess.fail_reason = 'failed', reason
+    elif sess.percent >= link.pass_percent:
+        sess.status, sess.fail_reason = 'passed', ''
+    else:
+        sess.status, sess.fail_reason = 'failed', 'low_score'
+
+
+def quiz_record(sess, qid, choice, seconds, timed_out):
+    answers = json.loads(sess.answers or '{}')
+    answers[str(qid)] = {'c': choice, 's': round(seconds, 1), 'timeout': bool(timed_out)}
+    sess.answers = json.dumps(answers)
+
+
+def quiz_settle(sess, link, qmap, now):
+    """Moves the session forward by itself: questions whose time is over are failed, missing questions skipped,
+    and the quiz is finished when nothing is left. Safe to call on every request."""
+    if sess.status != 'running':
+        return
+    ids = json.loads(sess.question_ids or '[]')
+    limit = link.seconds_per_question
+    while sess.current_index < len(ids):
+        qid = ids[sess.current_index]
+        if qid not in qmap:
+            sess.current_index += 1
+            sess.q_started_at = now
+            continue
+        deadline = sess.q_started_at + timedelta(seconds=limit)
+        if now < deadline:
+            return
+        quiz_record(sess, qid, None, limit, True)
+        quiz_log_event(sess, 'timeout')
+        sess.current_index += 1
+        sess.q_started_at = deadline
+        if link.timeout_fails:
+            quiz_finish(sess, link, qmap, now, 'time_up')
+            return
+    quiz_finish(sess, link, qmap, now)
+
+
+def quiz_result_dict(sess, link):
+    return {
+        'name': sess.name,
+        'score': sess.score,
+        'total': sess.total,
+        'percent': sess.percent,
+        'passed': sess.status == 'passed',
+        'reason': QUIZ_FAIL_TEXT.get(sess.fail_reason, ''),
+        'pass_percent': link.pass_percent,
+        'leaves': sess.leave_count,
+        'away_seconds': sess.away_seconds
+    }
+
+
+def quiz_state_response(sess, link, qmap, now):
+    if sess.status != 'running':
+        return {'success': True, 'status': sess.status, 'result': quiz_result_dict(sess, link)}
+    ids = json.loads(sess.question_ids or '[]')
+    q = qmap[ids[sess.current_index]]
+    options = json.loads(q.options)
+    order = list(range(len(options)))
+    random.Random(f'{sess.sid}:{q.id}').shuffle(order)
+    left = link.seconds_per_question - (now - sess.q_started_at).total_seconds()
+    return {
+        'success': True,
+        'status': 'running',
+        'question': {
+            'number': sess.current_index + 1,
+            'total': len(ids),
+            'text': q.question,
+            'options': [{'i': i, 'text': options[i]} for i in order],
+            'seconds_left': max(0, round(left, 1)),
+            'seconds_total': link.seconds_per_question
+        },
+        'leaves': sess.leave_count,
+        'max_leaves': link.max_leaves
+    }
+
+
+def load_quiz_session(sid, lock=True):
+    sid = str(sid or '')[:40]
+    if not sid:
+        return None, None
+    query = QuizSession.query.filter_by(sid=sid)
+    if lock:
+        query = query.with_for_update()
+    sess = query.first()
+    link = db.session.get(QuizLink, sess.link_id) if sess else None
+    return sess, link
+
+
+@app.route('/q/<token>')
+def quiz_link_page(token):
+    link = QuizLink.query.filter_by(token=token[:32]).first()
+    return render_template('quiz-link.html', link=link, token=token)
+
+
+@app.route('/api/q/<token>/start', methods=['POST'])
+@limiter.limit('300 per hour')
+def api_quiz_link_start(token):
+    link = QuizLink.query.filter_by(token=token[:32]).first()
+    if not link:
+        return jsonify({'success': False, 'message': 'This quiz link does not exist.'}), 404
+    if not link.active:
+        return jsonify({'success': False, 'message': 'This quiz is closed right now.'}), 403
+    data = request.get_json(silent=True) or {}
+    name = clean_person_name(data.get('name'))
+    if not name:
+        return jsonify({'success': False, 'message': 'Ilagay ang buong pangalan mo (2 hanggang 60 letra).'}), 400
+
+    categories = quiz_link_categories(link)
+    pool = Question.query.filter(Question.category.in_(categories), Question.active.is_(True)).all() if categories else []
+    if not pool:
+        return jsonify({'success': False, 'message': 'The quiz has no questions yet.'}), 503
+    picked = random.sample(pool, min(link.question_count, len(pool)))
+    previous = (QuizSession.query.filter(QuizSession.link_id == link.id, func.lower(QuizSession.name) == name.lower()).count())
+    now = utcnow()
+    sess = QuizSession(
+        link_id=link.id, sid=secrets.token_urlsafe(24), name=name, attempt_no=previous + 1,
+        question_ids=json.dumps([q.id for q in picked]), total=len(picked),
+        started_at=now, q_started_at=now
+    )
+    db.session.add(sess)
+    db.session.commit()
+    qmap = {q.id: q for q in picked}
+    response = quiz_state_response(sess, link, qmap, now)
+    response['sid'] = sess.sid
+    return jsonify(response)
+
+
+@app.route('/api/q/state', methods=['POST'])
+@limiter.limit('60 per minute', key_func=quiz_rate_key)
+def api_quiz_link_state():
+    data = request.get_json(silent=True) or {}
+    sess, link = load_quiz_session(data.get('sid'))
+    if not sess or not link:
+        return jsonify({'success': False, 'message': 'Session not found.'}), 404
+    now = utcnow()
+    qmap = quiz_question_map(sess)
+    if sess.status == 'running' and data.get('resumed'):
+        sess.reload_count += 1
+        quiz_close_away(sess, now)
+        quiz_log_event(sess, 'reload')
+    quiz_settle(sess, link, qmap, now)
+    db.session.commit()
+    return jsonify(quiz_state_response(sess, link, qmap, now))
+
+
+@app.route('/api/q/answer', methods=['POST'])
+@limiter.limit('60 per minute', key_func=quiz_rate_key)
+def api_quiz_link_answer():
+    data = request.get_json(silent=True) or {}
+    sess, link = load_quiz_session(data.get('sid'))
+    if not sess or not link:
+        return jsonify({'success': False, 'message': 'Session not found.'}), 404
+    now = utcnow()
+    qmap = quiz_question_map(sess)
+    ids = json.loads(sess.question_ids or '[]')
+    index = data.get('index')
+    if sess.status == 'running' and index == sess.current_index and sess.current_index < len(ids) and ids[sess.current_index] in qmap:
+        elapsed = (now - sess.q_started_at).total_seconds()
+        if elapsed <= link.seconds_per_question + QUIZ_GRACE_SECONDS:
+            q = qmap[ids[sess.current_index]]
+            choice = data.get('choice')
+            choice = choice if isinstance(choice, int) and not isinstance(choice, bool) and 0 <= choice < len(json.loads(q.options)) else None
+            quiz_record(sess, q.id, choice, min(elapsed, link.seconds_per_question), choice is None)
+            sess.current_index += 1
+            sess.q_started_at = now
+            if choice is None:
+                quiz_log_event(sess, 'timeout')
+                if link.timeout_fails:
+                    quiz_finish(sess, link, qmap, now, 'time_up')
+    quiz_settle(sess, link, qmap, now)
+    db.session.commit()
+    return jsonify(quiz_state_response(sess, link, qmap, now))
+
+
+@app.route('/api/q/event', methods=['POST'])
+@limiter.limit('90 per minute', key_func=quiz_rate_key)
+def api_quiz_link_event():
+    data = request.get_json(silent=True) or {}
+    sess, link = load_quiz_session(data.get('sid'))
+    if not sess or not link:
+        return jsonify({'success': False, 'message': 'Session not found.'}), 404
+    kind = data.get('type')
+    if kind not in QUIZ_EVENT_KINDS:
+        return jsonify({'success': False, 'message': 'Unknown event.'}), 400
+    now = utcnow()
+    qmap = quiz_question_map(sess)
+    if sess.status == 'running':
+        quiz_settle(sess, link, qmap, now)
+    if sess.status == 'running':
+        if kind == 'left' and not sess.last_leave_at:
+            sess.last_leave_at = now
+            sess.leave_count += 1
+            quiz_log_event(sess, 'left')
+            if link.max_leaves > 0 and sess.leave_count > link.max_leaves:
+                quiz_finish(sess, link, qmap, now, 'too_many_leaves')
+        elif kind == 'back' and sess.last_leave_at:
+            away = int((now - sess.last_leave_at).total_seconds())
+            quiz_close_away(sess, now)
+            quiz_log_event(sess, 'back', {'away': max(0, min(away, 86400))})
+        elif kind in ('copy', 'paste', 'menu'):
+            quiz_log_event(sess, kind)
+    db.session.commit()
+    return jsonify(quiz_state_response(sess, link, qmap, now))
+
+
+def quiz_flag(sess):
+    if sess.leave_count >= 3:
+        return 'cheating'
+    if sess.leave_count >= 1 or sess.reload_count >= 1:
+        return 'suspicious'
+    return 'clean'
+
+
+def quiz_session_dict(sess):
+    try:
+        events = json.loads(sess.events or '[]')
+    except ValueError:
+        events = []
+    end = sess.finished_at or utcnow()
+    return {
+        'id': sess.id,
+        'name': sess.name,
+        'attempt_no': sess.attempt_no,
+        'status': sess.status,
+        'reason': QUIZ_FAIL_TEXT.get(sess.fail_reason, ''),
+        'score': sess.score,
+        'total': sess.total,
+        'percent': sess.percent,
+        'leaves': sess.leave_count,
+        'away_seconds': sess.away_seconds,
+        'reloads': sess.reload_count,
+        'flag': quiz_flag(sess),
+        'duration': max(0, int((end - sess.started_at).total_seconds())),
+        'started_at': iso(sess.started_at),
+        'events': events
+    }
+
+
+def quiz_link_dict(link):
+    rows = QuizSession.query.filter_by(link_id=link.id).all()
+    finished = [r for r in rows if r.status != 'running']
+    return {
+        'id': link.id,
+        'token': link.token,
+        'url': url_for('quiz_link_page', token=link.token, _external=True),
+        'title': link.title,
+        'categories': quiz_link_categories(link),
+        'question_count': link.question_count,
+        'seconds_per_question': link.seconds_per_question,
+        'pass_percent': link.pass_percent,
+        'timeout_fails': link.timeout_fails,
+        'max_leaves': link.max_leaves,
+        'active': link.active,
+        'created_at': iso(link.created_at),
+        'takers': len(rows),
+        'passed': sum(1 for r in finished if r.status == 'passed'),
+        'failed': sum(1 for r in finished if r.status == 'failed'),
+        'flagged': sum(1 for r in rows if quiz_flag(r) != 'clean')
+    }
+
+
+def read_quiz_link_form(data, existing=None):
+    fields = {}
+    if 'title' in data or existing is None:
+        title = ' '.join(str(data.get('title') or '').split())
+        if not 2 <= len(title) <= 120:
+            return None, 'The title must be 2 to 120 characters.'
+        fields['title'] = title
+    if 'categories' in data or existing is None:
+        categories = data.get('categories')
+        if not isinstance(categories, list) or not categories or any(c not in CATEGORIES for c in categories):
+            return None, 'Choose at least one topic.'
+        fields['categories'] = json.dumps(list(dict.fromkeys(categories)))
+    for key, low, high, default, label in (
+            ('question_count', 1, 60, 10, 'Number of questions'),
+            ('seconds_per_question', 5, 300, 30, 'Seconds per question'),
+            ('pass_percent', 1, 100, 60, 'Passing score'),
+            ('max_leaves', 0, 50, 0, 'Maximum leaves')):
+        if key in data or existing is None:
+            raw = data.get(key, default)
+            number = to_int(raw) if raw not in (None, '') else default
+            if number is None or not low <= number <= high:
+                return None, f'{label} must be between {low} and {high}.'
+            fields[key] = number
+    if 'timeout_fails' in data or existing is None:
+        fields['timeout_fails'] = bool(data.get('timeout_fails'))
+    if 'active' in data:
+        fields['active'] = bool(data.get('active'))
+    return fields, None
+
+
+@app.route(ADMIN_PATH + '/quiz-links')
+@admin_required
+def admin_quiz_links_page():
+    return render_template('admin-quiz-links.html', base=ADMIN_PATH, user=current_user())
+
+
+@app.route(ADMIN_PATH + '/api/quiz-links')
+@admin_required
+def admin_quiz_links():
+    links = QuizLink.query.order_by(QuizLink.created_at.desc()).all()
+    counts = dict(db.session.query(Question.category, func.count(Question.id))
+                  .filter(Question.active.is_(True)).group_by(Question.category).all())
+    return jsonify({
+        'links': [quiz_link_dict(l) for l in links],
+        'topics': [{'name': c, 'count': counts.get(c, 0)} for c in CATEGORIES]
+    })
+
+
+@app.route(ADMIN_PATH + '/api/quiz-links', methods=['POST'])
+@admin_required
+def admin_quiz_link_add():
+    fields, error = read_quiz_link_form(request.get_json(silent=True) or {})
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    link = QuizLink(token=secrets.token_urlsafe(8), active=False, **fields)
+    db.session.add(link)
+    db.session.commit()
+    return jsonify({'success': True, 'link': quiz_link_dict(link)})
+
+
+@app.route(ADMIN_PATH + '/api/quiz-links/<int:link_id>', methods=['POST'])
+@admin_required
+def admin_quiz_link_update(link_id):
+    link = db.session.get(QuizLink, link_id)
+    if not link:
+        return jsonify({'success': False, 'message': 'Link not found.'}), 404
+    fields, error = read_quiz_link_form(request.get_json(silent=True) or {}, existing=link)
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    for key, value in fields.items():
+        setattr(link, key, value)
+    db.session.commit()
+    return jsonify({'success': True, 'link': quiz_link_dict(link)})
+
+
+@app.route(ADMIN_PATH + '/api/quiz-links/<int:link_id>', methods=['DELETE'])
+@admin_required
+def admin_quiz_link_delete(link_id):
+    link = db.session.get(QuizLink, link_id)
+    if not link:
+        return jsonify({'success': False, 'message': 'Link not found.'}), 404
+    QuizSession.query.filter_by(link_id=link.id).delete()
+    db.session.delete(link)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route(ADMIN_PATH + '/api/quiz-links/<int:link_id>/results')
+@admin_required
+def admin_quiz_link_results(link_id):
+    link = db.session.get(QuizLink, link_id)
+    if not link:
+        return jsonify({'success': False, 'message': 'Link not found.'}), 404
+    rows = (QuizSession.query.filter_by(link_id=link.id)
+            .order_by(QuizSession.started_at.desc()).limit(500).all())
+    return jsonify({'link': quiz_link_dict(link), 'results': [quiz_session_dict(r) for r in rows]})
+
+
+@app.route(ADMIN_PATH + '/api/quiz-sessions/<int:session_id>', methods=['DELETE'])
+@admin_required
+def admin_quiz_session_delete(session_id):
+    sess = db.session.get(QuizSession, session_id)
+    if not sess:
+        return jsonify({'success': False, 'message': 'Result not found.'}), 404
+    db.session.delete(sess)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 @app.route('/api/dashboard')
@@ -3806,6 +4312,7 @@ with app.app_context():
     ensure_columns()
     ensure_global_conversation()
     seed_questions()
+    seed_extra_questions()
     seed_portfolio()
     ensure_admin()
     print_startup_report()

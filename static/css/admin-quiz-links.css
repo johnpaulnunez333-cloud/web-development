@@ -1,0 +1,15 @@
+.topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.topic-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid rgba(148, 163, 184, .25); border-radius: 10px; cursor: pointer; }
+.topic-item input { margin: 0; }
+.topic-item small { margin-left: auto; opacity: .7; }
+.check-line { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; }
+.link-url { display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; opacity: .75; }
+.pill-flag-clean { background: rgba(16, 185, 129, .15); color: #34d399; }
+.pill-flag-suspicious { background: rgba(245, 158, 11, .18); color: #fbbf24; }
+.pill-flag-cheating { background: rgba(239, 68, 68, .18); color: #f87171; }
+.pill-passed { background: rgba(16, 185, 129, .15); color: #34d399; }
+.pill-failed { background: rgba(239, 68, 68, .18); color: #f87171; }
+.pill-running { background: rgba(0, 102, 255, .15); color: #60a5fa; }
+.timeline { margin: 0; padding: 6px 4px 6px 18px; font-size: .85rem; line-height: 1.6; }
+.result-row { cursor: pointer; }
+[hidden]{display:none!important}

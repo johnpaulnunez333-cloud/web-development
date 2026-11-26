@@ -61,3 +61,4 @@
 .log-list .ok b{color:#4ade80}.log-list .bad b{color:#f87171}.log-empty{color:var(--text-muted)}
 @media(max-width:1000px){.sim-main{grid-template-columns:1fr}.canvas-wrap{max-height:460px}}
 @media(max-width:680px){.tool span{display:none}.tool{padding:9px 11px}.tool-group select{flex:1}.term-out{height:200px}}
+[hidden]{display:none!important}
